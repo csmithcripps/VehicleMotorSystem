@@ -1,1 +1,11 @@
 /.metadata/
+Debug
+Debug\*
+.xdchelp
+.config
+.config\*
+.launches
+.launches\*
+*.o
+*.log
+.jxbrowser-data\
