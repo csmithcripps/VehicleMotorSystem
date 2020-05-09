@@ -35,16 +35,24 @@
  */
 
 /* std Header files */
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* XDCtools Header files */
 #include <xdc/std.h>
+#include <xdc/runtime/System.h>
+#include <xdc/runtime/Types.h>
+#include <xdc/cfg/global.h>
 
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Swi.h>
+#include <ti/sysbios/hal/Hwi.h>
+#include <ti/sysbios/gates/GateHwi.h>
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/EMAC.h>
@@ -60,12 +68,14 @@
 /* Board Header file */
 #include "Board.h"
 
-/* Touchscreen driver header files */
+/* Graphics header files */
 #include "grlib/grlib.h"
+#include "grlib/widget.h"
+#include "grlib/canvas.h"
 #include "Drivers/Kentec320x240x16_ssd2119_spi.h"
 #include "Drivers/touch.h"
 
-/* Touchscreen driver header files */
+/* I2C driver header files */
 #include "Drivers/opt3001.h"
 #include "Drivers/i2cOptDriver.h"
 
@@ -75,13 +85,61 @@
 
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
+UART_Handle uart;
+tContext sContext;
+tRectangle sRect;
+
+void initScreen() {
+    Types_FreqHz cpuFreq;
+    BIOS_getCpuFreq(&cpuFreq);
+    Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
+    GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
+    sRect.i16XMin = 0;
+    sRect.i16YMin = 0;
+    sRect.i16XMax = 319;
+    sRect.i16YMax = 239;
+    //GrContextForegroundSet(&sContext, ClrBlack);
+    GrContextForegroundSet(&sContext, ClrBlue);
+    GrRectFill(&sContext, &sRect);
+}
+
+void initUART()
+{
+    UART_Params uartParams;
+    UART_Params_init(&uartParams);
+    uartParams.baudRate = 115200;
+    uart = UART_open(Board_UART0, &uartParams);
+
+    if (uart == NULL) {
+        System_abort("Error opening the UART");
+    }
+
+    System_printf("UART Initialized\n");
+    System_flush();
+}
+
+void initTasks()
+{
+    Task_Params taskParams;
+
+    /* Construct UiStart Task  thread */
+    Task_Params_init(&taskParams);
+    taskParams.stackSize = TASKSTACKSIZE;
+    taskParams.stack = &task0Stack;
+    Task_construct(&task0Struct, (Task_FuncPtr)UiStart, &taskParams, NULL);
+
+    System_printf("Constructed UiStart Task thread\n");
+    System_flush();
+}
+
 
 /*
  *  ======== main ========
  */
 int main(void)
 {
-    Task_Params taskParams;
+    System_printf("Starting system initialization\n");
+    System_flush();
 
     /* Call board init functions */
     Board_initGeneral();
@@ -96,15 +154,17 @@ int main(void)
     // Board_initWatchdog();
     // Board_initWiFi();
 
-    /* Construct heartBeat Task  thread */
-    Task_Params_init(&taskParams);
-    taskParams.arg0 = 1000;
-    taskParams.stackSize = TASKSTACKSIZE;
-    taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr)UItest, &taskParams, NULL);
+
+    initScreen();
+    initUART();
+    initTasks();
 
     /* Turn on user LED  */
     GPIO_write(Board_LED0, Board_LED_ON);
+
+        System_printf("System initialization successful\n"
+            "Starting vehicle motor system\n");
+    System_flush();
 
     /* Start BIOS */
     BIOS_start();

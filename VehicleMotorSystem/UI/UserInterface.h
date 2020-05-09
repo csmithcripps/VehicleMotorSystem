@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include <xdc/std.h>
 #include <ti/drivers/GPIO.h>
+#include <ti/drivers/UART.h>
 #include <ti/sysbios/knl/Task.h>
 #include "Board.h"
 
-Void UItest();
+Void UiStart();
