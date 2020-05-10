@@ -86,22 +86,6 @@
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
 UART_Handle uart;
-tContext sContext;
-tRectangle sRect;
-
-void initScreen() {
-    Types_FreqHz cpuFreq;
-    BIOS_getCpuFreq(&cpuFreq);
-    Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
-    GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
-    sRect.i16XMin = 0;
-    sRect.i16YMin = 0;
-    sRect.i16XMax = 319;
-    sRect.i16YMax = 239;
-    //GrContextForegroundSet(&sContext, ClrBlack);
-    GrContextForegroundSet(&sContext, ClrBlue);
-    GrRectFill(&sContext, &sRect);
-}
 
 void initUART()
 {
@@ -155,7 +139,6 @@ int main(void)
     // Board_initWiFi();
 
 
-    initScreen();
     initUART();
     initTasks();
 
