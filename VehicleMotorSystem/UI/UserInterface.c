@@ -23,6 +23,8 @@
 #include "Board.h"
 #include "images.h"
 
+#define NUM_PANELS 2
+
 //*****************************************************************************
 //
 // Forward declarations for the globals required to define the widgets at
@@ -31,13 +33,19 @@
 //*****************************************************************************
 void OnPrevious(tWidget *psWidget);
 void OnNext(tWidget *psWidget);
+void OnStartStop(tWidget *psWidget);
+void Start();
+void Stop();
 void OnPanel1(tWidget *psWidget, tContext *psContext);
 void OnPanel2(tWidget *psWidget, tContext *psContext);
 extern tCanvasWidget g_psPanels[];
 extern UART_Handle uart;
+
 Types_FreqHz cpuFreq;
 tContext sContext;
 tRectangle sRect;
+uint32_t g_ui32Panel;
+bool MotorOn = false;
 
 //*****************************************************************************
 //
@@ -114,37 +122,25 @@ tCanvasWidget g_psPanels[] =
  CanvasStruct(0, 0, &g_sPanel1, &g_sKentec320x240x16_SSD2119, 0, 24,
               320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
               CanvasStruct(0, 0, &g_sPanel2, &g_sKentec320x240x16_SSD2119, 0, 24,
-              320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
+                           320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
 };
-
-//*****************************************************************************
-//
-// The number of panels.
-//
-//*****************************************************************************
-#define NUM_PANELS 2
 
 //*****************************************************************************
 //
 // The buttons at the bottom of the screen.
 //
 //*****************************************************************************
-RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 200,
-                  50, 40, PB_STYLE_FILL, ClrBlack, ClrBlack, 0, ClrSilver,
-                  &g_sFontCm20, "-", g_pui8Blue50x50, g_pui8Blue50x50Press, 0, 0,
-                  OnPrevious);
+RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 200, 50, 40,
+                  (PB_STYLE_FILL | PB_STYLE_AUTO_REPEAT), ClrBlack, ClrBlack, ClrWhite,
+                  ClrWhite, &g_sFontCm20, "-", 0, 0, 0, 0, OnPrevious);
 
-RectangularButton(g_sNext, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 270, 200,
-                  50, 40, PB_STYLE_IMG | PB_STYLE_TEXT, ClrBlack, ClrBlack, 0,
-                  ClrSilver, &g_sFontCm20, "+", g_pui8Blue50x50,
-                  g_pui8Blue50x50Press, 0, 0, OnNext);
+RectangularButton(g_sNext, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 270, 200, 50, 40,
+                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
+                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20, "+", 0, 0, 0, 0, OnNext);
 
-//*****************************************************************************
-//
-// The panel that is currently being displayed.
-//
-//*****************************************************************************
-uint32_t g_ui32Panel;
+RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 70, 200, 180, 40,
+                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
+                  ClrLimeGreen, ClrGreen, ClrWhite, ClrWhite, &g_sFontCm20b, "Start", 0, 0, 0, 0, OnStartStop);
 
 //*****************************************************************************
 //
@@ -155,9 +151,23 @@ void
 OnPrevious(tWidget *psWidget) {
 
     //
+    // There is nothing to be done if the first panel is already being
+    // displayed.
+    //
+    if(g_ui32Panel == 0)
+    {
+        return;
+    }
+
+    //
     // Remove the current panel.
     //
     WidgetRemove((tWidget *)(g_psPanels + g_ui32Panel));
+
+    //
+    // Decrement the panel index.
+    //
+    g_ui32Panel--;
 
     //
     // Add and draw the new panel.
@@ -166,21 +176,35 @@ OnPrevious(tWidget *psWidget) {
     WidgetPaint((tWidget *)(g_psPanels + g_ui32Panel));
 
     //
-    // Clear the previous button from the display since the first panel is
-    // being displayed.
+    // See if this is the first panel.
     //
-    PushButtonImageOff(&g_sPrevious);
-    PushButtonTextOff(&g_sPrevious);
-    PushButtonFillOn(&g_sPrevious);
-    WidgetPaint((tWidget *)&g_sPrevious);
+    if(g_ui32Panel == 0)
+    {
+        //
+        // Clear the previous button from the display since the first panel is
+        // being displayed.
+        //
+        PushButtonTextOff(&g_sPrevious);
+        PushButtonOutlineOff(&g_sPrevious);
+        PushButtonFillColorSet(&g_sPrevious, ClrBlack);
+        PushButtonFillColorPressedSet(&g_sPrevious, ClrBlack);
+        WidgetPaint((tWidget *)&g_sPrevious);
+    }
 
     //
-    // Display the next button.
+    // See if the previous panel was the last panel.
     //
-    PushButtonImageOn(&g_sNext);
-    PushButtonTextOn(&g_sNext);
-    PushButtonFillOff(&g_sNext);
-    WidgetPaint((tWidget *)&g_sNext);
+    if(g_ui32Panel == (NUM_PANELS - 2))
+    {
+        //
+        // Display the next button.
+        //
+        PushButtonTextOn(&g_sNext);
+        PushButtonOutlineOn(&g_sNext);
+        PushButtonFillColorSet(&g_sNext, ClrDarkBlue);
+        PushButtonFillColorPressedSet(&g_sNext, ClrBlue);
+        WidgetPaint((tWidget *)&g_sNext);
+    }
 
     sRect.i16XMin = 1;
     sRect.i16YMin = 1;
@@ -200,13 +224,26 @@ OnPrevious(tWidget *psWidget) {
 // Handles presses of the next panel button.
 //
 //*****************************************************************************
-void
-OnNext(tWidget *psWidget) {
+void OnNext(tWidget *psWidget) {
+
+    //
+    // There is nothing to be done if the last panel is already being
+    // displayed.
+    //
+    if(g_ui32Panel == (NUM_PANELS - 1))
+    {
+        return;
+    }
 
     //
     // Remove the current panel.
     //
     WidgetRemove((tWidget *)(g_psPanels + g_ui32Panel));
+
+    //
+    // Increment the panel index.
+    //
+    g_ui32Panel++;
 
     //
     // Add and draw the new panel.
@@ -215,21 +252,34 @@ OnNext(tWidget *psWidget) {
     WidgetPaint((tWidget *)(g_psPanels + g_ui32Panel));
 
     //
-    // Display the previous button.
+    // See if the previous panel was the first panel.
     //
-    PushButtonImageOn(&g_sPrevious);
-    PushButtonTextOn(&g_sPrevious);
-    PushButtonFillOff(&g_sPrevious);
-    WidgetPaint((tWidget *)&g_sPrevious);
+    if(g_ui32Panel == 1)
+    {
+        //
+        // Display the previous button.
+        //
+        PushButtonTextOn(&g_sPrevious);
+        PushButtonOutlineOn(&g_sPrevious);
+        PushButtonFillColorSet(&g_sPrevious, ClrDarkBlue);
+        PushButtonFillColorPressedSet(&g_sPrevious, ClrBlue);
+        WidgetPaint((tWidget *)&g_sPrevious);
+    }
 
     //
-    // Clear the next button from the display since the last panel is being
-    // displayed.
+    // See if this is the last panel.
     //
-    PushButtonImageOff(&g_sNext);
-    PushButtonTextOff(&g_sNext);
-    PushButtonFillOn(&g_sNext);
-    WidgetPaint((tWidget *)&g_sNext);
+    if(g_ui32Panel == (NUM_PANELS - 1)) {
+        //
+        // Clear the next button from the display since the last panel is being
+        // displayed.
+        //
+        PushButtonTextOff(&g_sNext);
+        PushButtonOutlineOff(&g_sNext);
+        PushButtonFillColorSet(&g_sNext, ClrBlack);
+        PushButtonFillColorPressedSet(&g_sNext, ClrBlack);
+        WidgetPaint((tWidget *)&g_sNext);
+    }
 
     sRect.i16XMin = 1;
     sRect.i16YMin = 1;
@@ -246,11 +296,24 @@ OnNext(tWidget *psWidget) {
 
 //*****************************************************************************
 //
+// Handles presses of the start/stop button.
+//
+//*****************************************************************************
+void OnStartStop(tWidget *psWidget) {
+    if (MotorOn) {
+        Stop();
+    }
+    else {
+        Start();
+    }
+}
+
+//*****************************************************************************
+//
 // Handles paint requests for the introduction canvas widget.
 //
 //*****************************************************************************
-void
-OnPanel1(tWidget *psWidget, tContext *psContext) {
+void OnPanel1(tWidget *psWidget, tContext *psContext) {
 
 }
 
@@ -259,12 +322,25 @@ OnPanel1(tWidget *psWidget, tContext *psContext) {
 // Handles paint requests for the primitives canvas widget.
 //
 //*****************************************************************************
-void
-OnPanel2(tWidget *psWidget, tContext *psContext) {
+void OnPanel2(tWidget *psWidget, tContext *psContext) {
 
 }
 
+void Start() {
+    MotorOn = true;
+    PushButtonTextSet(&g_sStartStop, "Stop");
+    PushButtonFillColorSet(&g_sStartStop, ClrRed);
+    PushButtonFillColorPressedSet(&g_sStartStop, ClrDarkRed);
+    WidgetPaint((tWidget *)&g_sStartStop);
+}
 
+void Stop() {
+    MotorOn = false;
+    PushButtonTextSet(&g_sStartStop, "Start");
+    PushButtonFillColorSet(&g_sStartStop, ClrLimeGreen);
+    PushButtonFillColorPressedSet(&g_sStartStop, ClrGreen);
+    WidgetPaint((tWidget *)&g_sStartStop);
+}
 
 Void UiStart() {
 
@@ -282,6 +358,7 @@ Void UiStart() {
     //
     WidgetAdd(WIDGET_ROOT, (tWidget *)&g_sPrevious);
     WidgetAdd(WIDGET_ROOT, (tWidget *)&g_sNext);
+    WidgetAdd(WIDGET_ROOT, (tWidget *)&g_sStartStop);
 
     //
     // Add the first panel to the widget tree.
