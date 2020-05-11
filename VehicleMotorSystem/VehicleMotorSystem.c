@@ -140,7 +140,7 @@ int main(void)
 
 
     initUART();
-    initTasks();
+    //initTasks();
 
     System_printf("System initialization successful\n"
             "Starting vehicle motor system\n");

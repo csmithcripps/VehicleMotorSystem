@@ -73,17 +73,6 @@ void initScreen() {
     GrContextForegroundSet(&sContext, ClrWhite);
     GrRectDraw(&sContext, &sRect);
 
-    t = time(NULL) + 36000;
-    tm = gmtime(&t);
-
-    //
-    // Put the application name in the middle of the banner.
-    //
-    GrContextFontSet(&sContext, &g_sFontCm20);
-    sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
-    GrStringDrawCentered(&sContext, tempStr, -1,
-                         GrContextDpyWidthGet(&sContext) / 2, 8, 0);
-
     System_printf("Screen Initialized\n");
     System_flush();
 }
@@ -326,7 +315,21 @@ void Stop() {
 }
 
 void UpdateTime() {
+    t = time(NULL) + 36000;
+    tm = gmtime(&t);
 
+    sRect.i16XMin = 1;
+    sRect.i16YMin = 1;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
+    sRect.i16YMax = 22;
+    GrContextForegroundSet(&sContext, ClrDarkBlue);
+    GrRectFill(&sContext, &sRect);
+    GrContextForegroundSet(&sContext, ClrWhite);
+
+    GrContextFontSet(&sContext, &g_sFontCm20);
+    sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
+    GrStringDrawCentered(&sContext, tempStr, -1,
+                         GrContextDpyWidthGet(&sContext) / 2, 8, 0);
 }
 
 void UiStart() {
