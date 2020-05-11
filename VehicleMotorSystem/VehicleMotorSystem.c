@@ -142,9 +142,6 @@ int main(void)
     initUART();
     initTasks();
 
-    /* Turn on user LED  */
-    GPIO_write(Board_LED0, Board_LED_ON);
-
     System_printf("System initialization successful\n"
             "Starting vehicle motor system\n");
     System_flush();

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Types.h>
@@ -21,9 +22,6 @@
 #include "drivers/Kentec320x240x16_ssd2119_spi.h"
 #include "drivers/touch.h"
 #include "Board.h"
-#include "images.h"
-
-#define NUM_PANELS 2
 
 //*****************************************************************************
 //
@@ -45,6 +43,9 @@ Types_FreqHz cpuFreq;
 tContext sContext;
 tRectangle sRect;
 uint32_t g_ui32Panel;
+time_t t;
+struct tm *tm;
+char tempStr[40];
 bool MotorOn = false;
 
 //*****************************************************************************
@@ -72,11 +73,15 @@ void initScreen() {
     GrContextForegroundSet(&sContext, ClrWhite);
     GrRectDraw(&sContext, &sRect);
 
+    t = time(NULL) + 36000;
+    tm = gmtime(&t);
+
     //
     // Put the application name in the middle of the banner.
     //
     GrContextFontSet(&sContext, &g_sFontCm20);
-    GrStringDrawCentered(&sContext, "Test1", -1,
+    sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
+    GrStringDrawCentered(&sContext, tempStr, -1,
                          GrContextDpyWidthGet(&sContext) / 2, 8, 0);
 
     System_printf("Screen Initialized\n");
@@ -194,7 +199,7 @@ OnPrevious(tWidget *psWidget) {
     //
     // See if the previous panel was the last panel.
     //
-    if(g_ui32Panel == (NUM_PANELS - 2))
+    if(g_ui32Panel == 0)
     {
         //
         // Display the next button.
@@ -205,18 +210,6 @@ OnPrevious(tWidget *psWidget) {
         PushButtonFillColorPressedSet(&g_sNext, ClrBlue);
         WidgetPaint((tWidget *)&g_sNext);
     }
-
-    sRect.i16XMin = 1;
-    sRect.i16YMin = 1;
-    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
-    sRect.i16YMax = 22;
-    GrContextForegroundSet(&sContext, ClrDarkBlue);
-    GrRectFill(&sContext, &sRect);
-
-    GrContextForegroundSet(&sContext, ClrWhite);
-    GrContextFontSet(&sContext, &g_sFontCm20);
-    GrStringDrawCentered(&sContext, "Panel 1", -1,
-                         GrContextDpyWidthGet(&sContext) / 2, 8, 0);
 }
 
 //*****************************************************************************
@@ -230,7 +223,7 @@ void OnNext(tWidget *psWidget) {
     // There is nothing to be done if the last panel is already being
     // displayed.
     //
-    if(g_ui32Panel == (NUM_PANELS - 1))
+    if(g_ui32Panel == 1)
     {
         return;
     }
@@ -269,7 +262,7 @@ void OnNext(tWidget *psWidget) {
     //
     // See if this is the last panel.
     //
-    if(g_ui32Panel == (NUM_PANELS - 1)) {
+    if(g_ui32Panel == 1) {
         //
         // Clear the next button from the display since the last panel is being
         // displayed.
@@ -280,18 +273,6 @@ void OnNext(tWidget *psWidget) {
         PushButtonFillColorPressedSet(&g_sNext, ClrBlack);
         WidgetPaint((tWidget *)&g_sNext);
     }
-
-    sRect.i16XMin = 1;
-    sRect.i16YMin = 1;
-    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
-    sRect.i16YMax = 22;
-    GrContextForegroundSet(&sContext, ClrDarkBlue);
-    GrRectFill(&sContext, &sRect);
-
-    GrContextForegroundSet(&sContext, ClrWhite);
-    GrContextFontSet(&sContext, &g_sFontCm20);
-    GrStringDrawCentered(&sContext, "Panel 2", -1,
-                         GrContextDpyWidthGet(&sContext) / 2, 8, 0);
 }
 
 //*****************************************************************************
@@ -328,6 +309,7 @@ void OnPanel2(tWidget *psWidget, tContext *psContext) {
 
 void Start() {
     MotorOn = true;
+    GPIO_write(Board_LED0, Board_LED_ON);
     PushButtonTextSet(&g_sStartStop, "Stop");
     PushButtonFillColorSet(&g_sStartStop, ClrRed);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrDarkRed);
@@ -336,20 +318,24 @@ void Start() {
 
 void Stop() {
     MotorOn = false;
+    GPIO_write(Board_LED0, Board_LED_OFF);
     PushButtonTextSet(&g_sStartStop, "Start");
     PushButtonFillColorSet(&g_sStartStop, ClrLimeGreen);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrGreen);
     WidgetPaint((tWidget *)&g_sStartStop);
 }
 
-Void UiStart() {
+void UpdateTime() {
+
+}
+
+void UiStart() {
 
     BIOS_getCpuFreq(&cpuFreq);
     initScreen();
     initTouch();
     System_printf("Starting UI\n");
-    System_flush();
-    char tempStr[40];
+    System_flush();;
     sprintf(tempStr, "\n\n\n\n Starting UI\n");
     UART_write(uart, tempStr, strlen(tempStr));
 
@@ -371,8 +357,10 @@ Void UiStart() {
     //
     WidgetPaint(WIDGET_ROOT);
 
-
     while (1) {
+        //        if (t != time(NULL + 36000) {
+        //            UpdateTime();
+        //        }
 
         //
         // Process any messages in the widget message queue.
