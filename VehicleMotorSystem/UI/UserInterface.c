@@ -43,9 +43,7 @@ Types_FreqHz cpuFreq;
 tContext sContext;
 tRectangle sRect;
 uint32_t g_ui32Panel;
-time_t t;
-struct tm *tm;
-char tempStr[40];
+
 bool MotorOn = false;
 
 //*****************************************************************************
@@ -315,25 +313,28 @@ void Stop() {
 }
 
 void UpdateTime() {
-    t = time(NULL) + 36000;
-    tm = gmtime(&t);
+    time_t t = time(NULL) + 36000;
+    struct tm *tm = gmtime(&t);
+    char tempStr[40];
 
-    sRect.i16XMin = 1;
-    sRect.i16YMin = 1;
-    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
-    sRect.i16YMax = 22;
-    GrContextForegroundSet(&sContext, ClrDarkBlue);
-    GrRectFill(&sContext, &sRect);
+//    sRect.i16XMin = 1;
+//    sRect.i16YMin = 1;
+//    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
+//    sRect.i16YMax = 22;
+//    GrContextForegroundSet(&sContext, ClrDarkBlue);
+//    GrRectFill(&sContext, &sRect);
+
     GrContextForegroundSet(&sContext, ClrWhite);
-
     GrContextFontSet(&sContext, &g_sFontCm20);
     sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
     GrStringDrawCentered(&sContext, tempStr, -1,
                          GrContextDpyWidthGet(&sContext) / 2, 8, 0);
+
 }
 
 void UiStart() {
 
+    char tempStr[40];
     BIOS_getCpuFreq(&cpuFreq);
     initScreen();
     initTouch();
@@ -361,10 +362,6 @@ void UiStart() {
     WidgetPaint(WIDGET_ROOT);
 
     while (1) {
-        //        if (t != time(NULL + 36000) {
-        //            UpdateTime();
-        //        }
-
         //
         // Process any messages in the widget message queue.
         //
