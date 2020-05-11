@@ -112,7 +112,7 @@ void initTasks()
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr)UiStart, &taskParams, NULL);
 
-    System_printf("Constructed UiStart Task thread\n");
+    System_printf("Constructed UiStart task thread\n");
     System_flush();
 }
 
@@ -145,7 +145,7 @@ int main(void)
     /* Turn on user LED  */
     GPIO_write(Board_LED0, Board_LED_ON);
 
-        System_printf("System initialization successful\n"
+    System_printf("System initialization successful\n"
             "Starting vehicle motor system\n");
     System_flush();
 
