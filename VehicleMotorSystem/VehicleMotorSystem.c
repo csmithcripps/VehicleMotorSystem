@@ -43,13 +43,14 @@
 #include "Drivers/opt3001.h"
 #include "Drivers/i2cOptDriver.h"
 
-#include "UI/UserInterface.h"
+/* Definition header file */
+#include "utils/globaldefines.h"
 
-#define TASKSTACKSIZE   512
-
-Task_Struct task0Struct;
-Char task0Stack[TASKSTACKSIZE];
 UART_Handle uart;
+int SpeedLimit;
+int AccelerationLimit;
+int CurrentLimit;
+int TempLimit;
 
 void initUART()
 {
