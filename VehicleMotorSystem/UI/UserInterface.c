@@ -23,9 +23,12 @@
 #include "grlib/pushbutton.h"
 #include "grlib/radiobutton.h"
 #include "grlib/slider.h"
+#include "utils/ustdlib.h"
+#include "utils/globaldefines.h"
 #include "drivers/Kentec320x240x16_ssd2119_spi.h"
 #include "drivers/touch.h"
 #include "Board.h"
+
 
 //*****************************************************************************
 //
@@ -38,67 +41,63 @@ void OnNext(tWidget *psWidget);
 void OnStartStop(tWidget *psWidget);
 void Start();
 void Stop();
+void OnSliderChange(tWidget *psWidget, int32_t i32Value);
 void OnPanel1(tWidget *psWidget, tContext *psContext);
 void OnPanel2(tWidget *psWidget, tContext *psContext);
 extern tCanvasWidget g_psPanels[];
-extern UART_Handle uart;
 
-Types_FreqHz cpuFreq;
-time_t t;
-tContext sContext;
-tRectangle sRect;
-uint32_t g_ui32Panel;
-
-bool MotorOn = false;
 
 //*****************************************************************************
 //
-// Initialization of the screen
+// Shared resources that use semaphores
 //
 //*****************************************************************************
-void initScreen() {
-    Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
-    GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
+time_t t; // semTime
+extern int MotorSpeed; // semMotorSpeed
 
-    //
-    // Fill the top 24 rows of the screen with red to create the banner.
-    //
-    sRect.i16XMin = 0;
-    sRect.i16YMin = 0;
-    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 1;
-    sRect.i16YMax = 23;
-    GrContextForegroundSet(&sContext, ClrDarkBlue);
-    GrRectFill(&sContext, &sRect);
-
-    //
-    // Put a white box around the banner.
-    //
-    GrContextForegroundSet(&sContext, ClrWhite);
-    GrRectDraw(&sContext, &sRect);
-
-    System_printf("Screen Initialized\n");
-    System_flush();
-}
-
-//*****************************************************************************
-//
-// Initialization of the touch input
-//
-//*****************************************************************************
-void initTouch() {
-    TouchScreenInit((uint32_t)cpuFreq.lo);
-    TouchScreenCallbackSet(WidgetPointerMessage);
-    System_printf("Touch Initialized\n");
-    System_flush();
-}
 
 //*****************************************************************************
 //
 // The first panel
 //
 //*****************************************************************************
-Canvas(g_sPanel1, g_psPanels, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 24,
-       320, 166, CANVAS_STYLE_APP_DRAWN, 0, 0, 0, 0, 0, 0, OnPanel1);
+Canvas(g_sSliderValueCanvas, g_psPanels, 0, 0,
+       &g_sKentec320x240x16_SSD2119, 5, 35, 60, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+              &g_sFontCm18, "", 0, 0);
+
+tSliderWidget g_psSliders[] =
+{
+ SliderStruct(g_psPanels, g_psSliders + 1, 0,
+              &g_sKentec320x240x16_SSD2119, 50, 35, 220, 30, 0, 100, 50,
+              (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
+                      SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
+                      ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                      &g_sFontCm20, "50%", 0, 0, OnSliderChange),
+                      SliderStruct(g_psPanels, g_psSliders + 2, 0,
+                                   &g_sKentec320x240x16_SSD2119, 50, 77, 220, 30, 0, 100, 50,
+                                   (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
+                                           SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
+                                           ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                                           &g_sFontCm20, "50%", 0, 0, OnSliderChange),
+                                           SliderStruct(g_psPanels, g_psSliders + 3, 0,
+                                                        &g_sKentec320x240x16_SSD2119, 50, 119, 220, 30, 0, 100, 50,
+                                                        (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
+                                                                SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
+                                                                ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                                                                &g_sFontCm20, "50%", 0, 0, OnSliderChange),
+                                                                SliderStruct(g_psPanels, &g_sSliderValueCanvas, 0,
+                                                                             &g_sKentec320x240x16_SSD2119, 50, 161, 220, 30, 0, 100, 50,
+                                                                             (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
+                                                                                     SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
+                                                                                     ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
+                                                                                     &g_sFontCm20, "50%", 0, 0, OnSliderChange),
+};
+
+#define MOTOR_SPEED_SLIDER   0
+#define ALLOWABLE_ACCELLERATION_SLIDER   1
+#define CURRENT_LIMIT_SLIDER   2
+#define TEMPERATURE_LIMIT_SLIDER   3
 
 //*****************************************************************************
 //
@@ -116,8 +115,9 @@ Canvas(g_sPanel2, g_psPanels + 1, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 24,
 //*****************************************************************************
 tCanvasWidget g_psPanels[] =
 {
- CanvasStruct(0, 0, &g_sPanel1, &g_sKentec320x240x16_SSD2119, 0, 24,
+ CanvasStruct(0, 0, &g_psSliders, &g_sKentec320x240x16_SSD2119, 0, 24,
               320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
+
               CanvasStruct(0, 0, &g_sPanel2, &g_sKentec320x240x16_SSD2119, 0, 24,
                            320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
 };
@@ -141,6 +141,13 @@ RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 70, 200, 
 
 //*****************************************************************************
 //
+// The panel that is currently being displayed.
+//
+//*****************************************************************************
+uint32_t g_ui32Panel;
+
+//*****************************************************************************
+//
 // Handles presses of the previous panel button.
 //
 //*****************************************************************************
@@ -151,8 +158,7 @@ OnPrevious(tWidget *psWidget) {
     // There is nothing to be done if the first panel is already being
     // displayed.
     //
-    if(g_ui32Panel == 0)
-    {
+    if(g_ui32Panel == 0) {
         return;
     }
 
@@ -175,8 +181,7 @@ OnPrevious(tWidget *psWidget) {
     //
     // See if this is the first panel.
     //
-    if(g_ui32Panel == 0)
-    {
+    if(g_ui32Panel == 0) {
         //
         // Clear the previous button from the display since the first panel is
         // being displayed.
@@ -191,8 +196,7 @@ OnPrevious(tWidget *psWidget) {
     //
     // See if the previous panel was the last panel.
     //
-    if(g_ui32Panel == 0)
-    {
+    if(g_ui32Panel == 0) {
         //
         // Display the next button.
         //
@@ -215,8 +219,7 @@ void OnNext(tWidget *psWidget) {
     // There is nothing to be done if the last panel is already being
     // displayed.
     //
-    if(g_ui32Panel == 1)
-    {
+    if(g_ui32Panel == 1) {
         return;
     }
 
@@ -239,8 +242,7 @@ void OnNext(tWidget *psWidget) {
     //
     // See if the previous panel was the first panel.
     //
-    if(g_ui32Panel == 1)
-    {
+    if(g_ui32Panel == 1) {
         //
         // Display the previous button.
         //
@@ -272,6 +274,7 @@ void OnNext(tWidget *psWidget) {
 // Handles presses of the start/stop button.
 //
 //*****************************************************************************
+bool MotorOn = false;
 void OnStartStop(tWidget *psWidget) {
     if (MotorOn) {
         Stop();
@@ -281,13 +284,65 @@ void OnStartStop(tWidget *psWidget) {
     }
 }
 
+
+void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
+    static char pcSpeedText[5];
+    static char pcAccelText[5];
+    static char pcAmpereText[5];
+    static char pcTempText[5];
+
+    if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER])
+    {
+        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+        MotorSpeed = MAX_SPEED * i32Value;
+        Semaphore_post(semTime);
+
+        usprintf(pcSpeedText, "%3d%%", i32Value);
+        SliderTextSet(&g_psSliders[MOTOR_SPEED_SLIDER], pcSpeedText);
+        WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
+    }
+
+    else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER])
+    {
+        //        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+        //        Semaphore_post(semTime);
+
+        usprintf(pcAccelText, "%3d%%", i32Value);
+        SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
+        WidgetPaint((tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]);
+    }
+
+    else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER])
+    {
+        //        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+        //        Semaphore_post(semTime);
+
+        usprintf(pcAmpereText, "%3d%%", i32Value);
+        SliderTextSet(&g_psSliders[CURRENT_LIMIT_SLIDER], pcAmpereText);
+        WidgetPaint((tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]);
+    }
+
+    else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER])
+    {
+        //        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+        //        Semaphore_post(semTime);
+
+        usprintf(pcTempText, "%3d%%", i32Value);
+        SliderTextSet(&g_psSliders[TEMPERATURE_LIMIT_SLIDER], pcTempText);
+        WidgetPaint((tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]);
+    }
+}
+
 //*****************************************************************************
 //
 // Handles paint requests for the introduction canvas widget.
 //
 //*****************************************************************************
 void OnPanel1(tWidget *psWidget, tContext *psContext) {
-
+    GrContextFontSet(psContext, &g_sFontCm18);
+    GrContextForegroundSet(psContext, ClrWhite);
+    GrStringDraw(psContext, "Motor Speed", -1,
+                 5, 40, 0);
 }
 
 //*****************************************************************************
@@ -322,9 +377,9 @@ bool update;
 void UpdateTime() {
     while(1) {
         if (t != time(NULL) + 36000) {
-            Semaphore_pend(Timesem, BIOS_WAIT_FOREVER);
+            Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
             update = true;
-            Semaphore_post(Timesem);
+            Semaphore_post(semTime);
             t = time(NULL) + 36000;
         }
         Task_sleep(100);
@@ -333,14 +388,33 @@ void UpdateTime() {
 
 void UiStart() {
 
-    BIOS_getCpuFreq(&cpuFreq);
+    tContext sContext;
+    tRectangle sRect;
     char tempStr[40];
-    initScreen();
-    initTouch();
-    System_printf("Starting UI\n");
-    System_flush();;
-    sprintf(tempStr, "\n\n\n\n Starting UI\n");
-    UART_write(uart, tempStr, strlen(tempStr));
+    Types_FreqHz cpuFreq;
+    BIOS_getCpuFreq(&cpuFreq);
+
+    Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
+    GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
+
+    sRect.i16XMin = 0;
+    sRect.i16YMin = 0;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 1;
+    sRect.i16YMax = 23;
+    GrContextForegroundSet(&sContext, ClrDarkBlue);
+    GrRectFill(&sContext, &sRect);
+
+    GrContextForegroundSet(&sContext, ClrWhite);
+    GrRectDraw(&sContext, &sRect);
+
+    System_printf("Screen Initialized\n");
+    System_flush();
+
+    TouchScreenInit((uint32_t)cpuFreq.lo);
+    TouchScreenCallbackSet(WidgetPointerMessage);
+
+    System_printf("Touch Initialized\n");
+    System_flush();
 
     //
     // Add previous and next buttons to the widget tree.
@@ -364,9 +438,9 @@ void UiStart() {
 
         if (update) {
 
-            Semaphore_pend(Timesem, BIOS_WAIT_FOREVER);
+            Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
             update = false;
-            Semaphore_post(Timesem);
+            Semaphore_post(semTime);
 
             struct tm *tm = gmtime(&t);
 
@@ -381,7 +455,7 @@ void UiStart() {
             GrContextFontSet(&sContext, &g_sFontCm20);
             strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
             GrStringDraw(&sContext, tempStr, -1,
-                                 3, 2, 0);
+                         3, 2, 0);
 
         }
         //
