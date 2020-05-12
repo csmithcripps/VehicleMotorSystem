@@ -44,6 +44,7 @@ extern tCanvasWidget g_psPanels[];
 extern UART_Handle uart;
 
 Types_FreqHz cpuFreq;
+time_t t;
 tContext sContext;
 tRectangle sRect;
 uint32_t g_ui32Panel;
@@ -316,42 +317,21 @@ void Stop() {
     WidgetPaint((tWidget *)&g_sStartStop);
 }
 
+
+bool update;
 void UpdateTime() {
-
-    time_t t;
-    char tempStr[40];
-
     while(1) {
-
-        if (t != time(NULL)) {
-
-            time(&t);
-            struct tm *tm = gmtime(&t);
-
-            Semaphore_pend(semScreen, BIOS_WAIT_FOREVER);
-
-            sRect.i16XMin = 1;
-            sRect.i16YMin = 1;
-            sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
-            sRect.i16YMax = 22;
-            GrContextForegroundSet(&sContext, ClrDarkBlue);
-            GrRectFill(&sContext, &sRect);
-
-            GrContextForegroundSet(&sContext, ClrWhite);
-            GrContextFontSet(&sContext, &g_sFontCm20);
-            sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
-            GrStringDrawCentered(&sContext, tempStr, -1,
-                                 GrContextDpyWidthGet(&sContext) / 2, 8, 0);
-
-            Semaphore_post(semScreen);
+        if (t != time(NULL) + 36000) {
+            Semaphore_pend(Timesem, BIOS_WAIT_FOREVER);
+            update = true;
+            Semaphore_post(Timesem);
+            t = time(NULL) + 36000;
         }
-        Task_sleep(10000 / Clock_tickPeriod);
+        Task_sleep(100);
     }
 }
 
 void UiStart() {
-
-    Semaphore_pend(semScreen, BIOS_WAIT_FOREVER);
 
     BIOS_getCpuFreq(&cpuFreq);
     char tempStr[40];
@@ -380,18 +360,35 @@ void UiStart() {
     //
     WidgetPaint(WIDGET_ROOT);
 
-    Semaphore_post(semScreen);
-
     while(1) {
 
-        //Semaphore_pend(semScreen, BIOS_WAIT_FOREVER);
+        if (update) {
+
+            Semaphore_pend(Timesem, BIOS_WAIT_FOREVER);
+            update = false;
+            Semaphore_post(Timesem);
+
+            struct tm *tm = gmtime(&t);
+
+            sRect.i16XMin = 1;
+            sRect.i16YMin = 1;
+            sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
+            sRect.i16YMax = 22;
+            GrContextForegroundSet(&sContext, ClrDarkBlue);
+            GrRectFill(&sContext, &sRect);
+
+            GrContextForegroundSet(&sContext, ClrWhite);
+            GrContextFontSet(&sContext, &g_sFontCm20);
+            strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
+            GrStringDraw(&sContext, tempStr, -1,
+                                 3, 2, 0);
+
+        }
         //
         // Process any messages in the widget message queue.
         //
         WidgetMessageQueueProcess();
 
-        //Semaphore_post(semScreen);
-
-        Task_sleep(10000 / Clock_tickPeriod);
+        Task_sleep(1);
     }
 }
