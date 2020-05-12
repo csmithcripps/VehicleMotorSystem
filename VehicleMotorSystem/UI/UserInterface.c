@@ -7,10 +7,14 @@
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Types.h>
+#include <xdc/cfg/global.h>
 #include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Swi.h>
+#include <ti/sysbios/knl/Semaphore.h>
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/UART.h>
-#include <ti/sysbios/knl/Task.h>
 #include "grlib/grlib.h"
 #include "grlib/widget.h"
 #include "grlib/canvas.h"
@@ -313,29 +317,44 @@ void Stop() {
 }
 
 void UpdateTime() {
-    time_t t = time(NULL) + 36000;
-    struct tm *tm = gmtime(&t);
+
+    time_t t;
     char tempStr[40];
 
-//    sRect.i16XMin = 1;
-//    sRect.i16YMin = 1;
-//    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
-//    sRect.i16YMax = 22;
-//    GrContextForegroundSet(&sContext, ClrDarkBlue);
-//    GrRectFill(&sContext, &sRect);
+    while(1) {
 
-    GrContextForegroundSet(&sContext, ClrWhite);
-    GrContextFontSet(&sContext, &g_sFontCm20);
-    sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
-    GrStringDrawCentered(&sContext, tempStr, -1,
-                         GrContextDpyWidthGet(&sContext) / 2, 8, 0);
+        if (t != time(NULL)) {
 
+            time(&t);
+            struct tm *tm = gmtime(&t);
+
+            Semaphore_pend(semScreen, BIOS_WAIT_FOREVER);
+
+            sRect.i16XMin = 1;
+            sRect.i16YMin = 1;
+            sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
+            sRect.i16YMax = 22;
+            GrContextForegroundSet(&sContext, ClrDarkBlue);
+            GrRectFill(&sContext, &sRect);
+
+            GrContextForegroundSet(&sContext, ClrWhite);
+            GrContextFontSet(&sContext, &g_sFontCm20);
+            sprintf(tempStr, "%02d/%02d/%02d %02d:%02d:%02d", tm->tm_mday, tm->tm_mon+1, tm->tm_year-100, tm->tm_hour, tm->tm_min, tm->tm_sec);
+            GrStringDrawCentered(&sContext, tempStr, -1,
+                                 GrContextDpyWidthGet(&sContext) / 2, 8, 0);
+
+            Semaphore_post(semScreen);
+        }
+        Task_sleep(10000 / Clock_tickPeriod);
+    }
 }
 
 void UiStart() {
 
-    char tempStr[40];
+    Semaphore_pend(semScreen, BIOS_WAIT_FOREVER);
+
     BIOS_getCpuFreq(&cpuFreq);
+    char tempStr[40];
     initScreen();
     initTouch();
     System_printf("Starting UI\n");
@@ -361,10 +380,18 @@ void UiStart() {
     //
     WidgetPaint(WIDGET_ROOT);
 
-    while (1) {
+    Semaphore_post(semScreen);
+
+    while(1) {
+
+        //Semaphore_pend(semScreen, BIOS_WAIT_FOREVER);
         //
         // Process any messages in the widget message queue.
         //
         WidgetMessageQueueProcess();
+
+        //Semaphore_post(semScreen);
+
+        Task_sleep(10000 / Clock_tickPeriod);
     }
 }
