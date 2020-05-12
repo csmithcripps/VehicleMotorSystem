@@ -53,7 +53,10 @@ extern tCanvasWidget g_psPanels[];
 //
 //*****************************************************************************
 time_t t; // semTime
-extern int MotorSpeed; // semMotorSpeed
+extern int SpeedLimit; // semSpeedLimit
+extern int AccelerationLimit; // semAccelerationLimit
+extern int CurrentLimit; // semCurrentLimit
+extern int TempLimit; // semTempLimit
 
 
 //*****************************************************************************
@@ -61,33 +64,49 @@ extern int MotorSpeed; // semMotorSpeed
 // The first panel
 //
 //*****************************************************************************
-Canvas(g_sSliderValueCanvas, g_psPanels, 0, 0,
-       &g_sKentec320x240x16_SSD2119, 5, 35, 60, 40,
+Canvas(g_sSliderValueCanvas4, g_psPanels, 0, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 158, 95, 40,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-              &g_sFontCm18, "", 0, 0);
+       &g_sFontCm18, "Temperature", 0, 0);
+Canvas(g_sSliderValueCanvas3, g_psPanels, &g_sSliderValueCanvas4, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 116, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Current", 0, 0);
+Canvas(g_sSliderValueCanvas2, g_psPanels, &g_sSliderValueCanvas3, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 74, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Acceleration", 0, 0);
+Canvas(g_sSliderValueCanvas1, g_psPanels, &g_sSliderValueCanvas2, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 32, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Motor Speed", 0, 0);
+Canvas(g_sSliderValueCanvas, g_psPanels, &g_sSliderValueCanvas1, 0,
+       &g_sKentec320x240x16_SSD2119, 0, 0, 0, 0,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "", 0, 0);
 
 tSliderWidget g_psSliders[] =
 {
  SliderStruct(g_psPanels, g_psSliders + 1, 0,
-              &g_sKentec320x240x16_SSD2119, 50, 35, 220, 30, 0, 100, 50,
+              &g_sKentec320x240x16_SSD2119, 98, 35, 220, 30, 0, 100, 50,
               (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
                       SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                       ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                       &g_sFontCm20, "50%", 0, 0, OnSliderChange),
                       SliderStruct(g_psPanels, g_psSliders + 2, 0,
-                                   &g_sKentec320x240x16_SSD2119, 50, 77, 220, 30, 0, 100, 50,
+                                   &g_sKentec320x240x16_SSD2119, 98, 77, 220, 30, 0, 100, 50,
                                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
                                            SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                                            ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                                            &g_sFontCm20, "50%", 0, 0, OnSliderChange),
                                            SliderStruct(g_psPanels, g_psSliders + 3, 0,
-                                                        &g_sKentec320x240x16_SSD2119, 50, 119, 220, 30, 0, 100, 50,
+                                                        &g_sKentec320x240x16_SSD2119, 98, 119, 220, 30, 0, 100, 50,
                                                         (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
                                                                 SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                                                                 ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
                                                                 &g_sFontCm20, "50%", 0, 0, OnSliderChange),
                                                                 SliderStruct(g_psPanels, &g_sSliderValueCanvas, 0,
-                                                                             &g_sKentec320x240x16_SSD2119, 50, 161, 220, 30, 0, 100, 50,
+                                                                             &g_sKentec320x240x16_SSD2119, 98, 161, 220, 30, 0, 100, 50,
                                                                              (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE |
                                                                                      SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                                                                                      ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite,
@@ -293,9 +312,9 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER])
     {
-        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-        MotorSpeed = MAX_SPEED * i32Value;
-        Semaphore_post(semTime);
+        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
+        SpeedLimit = MAX_SPEED * i32Value;
+        Semaphore_post(semSpeedLimit);
 
         usprintf(pcSpeedText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[MOTOR_SPEED_SLIDER], pcSpeedText);
@@ -304,8 +323,9 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER])
     {
-        //        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-        //        Semaphore_post(semTime);
+        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
+        SpeedLimit = MAX_ACCELERATION * i32Value;
+        Semaphore_post(semSpeedLimit);
 
         usprintf(pcAccelText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
@@ -314,8 +334,9 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER])
     {
-        //        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-        //        Semaphore_post(semTime);
+        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
+        SpeedLimit = MAX_CURRENT * i32Value;
+        Semaphore_post(semSpeedLimit);
 
         usprintf(pcAmpereText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[CURRENT_LIMIT_SLIDER], pcAmpereText);
@@ -324,8 +345,9 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER])
     {
-        //        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-        //        Semaphore_post(semTime);
+        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
+        SpeedLimit = MAX_TEMPARATURE * i32Value;
+        Semaphore_post(semSpeedLimit);
 
         usprintf(pcTempText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[TEMPERATURE_LIMIT_SLIDER], pcTempText);

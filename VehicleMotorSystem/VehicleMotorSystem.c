@@ -47,7 +47,10 @@
 #include "utils/globaldefines.h"
 
 UART_Handle uart;
-int MotorSpeed;
+int SpeedLimit;
+int AccelerationLimit;
+int CurrentLimit;
+int TempLimit;
 
 void initUART()
 {
