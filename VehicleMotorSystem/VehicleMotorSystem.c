@@ -86,22 +86,6 @@
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
 UART_Handle uart;
-tContext sContext;
-tRectangle sRect;
-
-void initScreen() {
-    Types_FreqHz cpuFreq;
-    BIOS_getCpuFreq(&cpuFreq);
-    Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
-    GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
-    sRect.i16XMin = 0;
-    sRect.i16YMin = 0;
-    sRect.i16XMax = 319;
-    sRect.i16YMax = 239;
-    //GrContextForegroundSet(&sContext, ClrBlack);
-    GrContextForegroundSet(&sContext, ClrBlue);
-    GrRectFill(&sContext, &sRect);
-}
 
 void initUART()
 {
@@ -128,7 +112,7 @@ void initTasks()
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr)UiStart, &taskParams, NULL);
 
-    System_printf("Constructed UiStart Task thread\n");
+    System_printf("Constructed UiStart task thread\n");
     System_flush();
 }
 
@@ -155,14 +139,13 @@ int main(void)
     // Board_initWiFi();
 
 
-    initScreen();
     initUART();
     initTasks();
 
     /* Turn on user LED  */
     GPIO_write(Board_LED0, Board_LED_ON);
 
-        System_printf("System initialization successful\n"
+    System_printf("System initialization successful\n"
             "Starting vehicle motor system\n");
     System_flush();
 
