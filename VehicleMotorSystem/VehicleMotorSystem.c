@@ -46,6 +46,8 @@
 /* Definition header file */
 #include "utils/globaldefines.h"
 
+#include "utils/motorlib.h"
+
 UART_Handle uart;
 int SpeedLimit;
 int AccelerationLimit;
@@ -87,6 +89,12 @@ int main(void)
     // Board_initUSBMSCHFatFs();
     // Board_initWatchdog();
     // Board_initWiFi();
+
+    // Neco: added to get Motor library working
+    Error_Block eb;
+    Error_init(&eb);
+//    initMotor();
+    initMotorLib(50, &eb);
 
     initUART();
 

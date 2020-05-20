@@ -1,6 +1,6 @@
 #
 # This file was generated based on the configuration script:
-#     C:\Users\Mark\repos\egh456_assignment\VehicleMotorSystem\VehicleMotorSystem\VehicleMotorSystem.cfg
+#     C:\Users\Gamer Extreme\Documents\GitHub\VehicleMotorSystem\VehicleMotorSystem\VehicleMotorSystem.cfg
 #
 # This makefile may be included in other makefiles that need to build
 # the libraries containing the compiled source files generated as
@@ -14,7 +14,7 @@
 #
 # The absolute path to the generated source directory (at the time the
 # sources were generated) is:
-#    C:\Users\Mark\repos\egh456_assignment\VehicleMotorSystem\VehicleMotorSystem\src
+#    C:\Users\Gamer Extreme\Documents\GitHub\VehicleMotorSystem\VehicleMotorSystem\src
 #
 GEN_SRC_DIR ?= ../src
 
