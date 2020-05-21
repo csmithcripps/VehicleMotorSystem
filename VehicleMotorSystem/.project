@@ -27,7 +27,7 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>utils/MotorLib.lib</name>
+			<name>Drivers/MotorLib.lib</name>
 			<type>1</type>
 			<locationURI>PROJECT_LOC/MotorLibrary/MotorLib.lib</locationURI>
 		</link>
