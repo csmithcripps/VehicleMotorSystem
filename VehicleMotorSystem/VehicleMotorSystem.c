@@ -76,20 +76,7 @@ void ISRHall() {
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
 }
 
-//*****************************************************************************
-// Main
-//*****************************************************************************
-int main(void) {
-    System_printf("Starting system initialization\n");
-    System_flush();
-    /* Call board init functions */
-    Board_initGeneral();
-    Board_initGPIO();
-    Board_initI2C();
-    Board_initUART();
-
-
-    // Neco: added to get Motor library working
+void initMotor() {
     // Define the interrupt pins
     GPIOPinTypeGPIOInput(GPIO_PORTM_BASE, GPIO_PIN_3); // Hall A
     GPIOPinTypeGPIOInput(GPIO_PORTH_BASE, GPIO_PIN_2); // Hall B
@@ -114,17 +101,29 @@ int main(void) {
     if (!&eb) { System_printf("Unsuccessfully initialized the motor.\n"); }
     else { System_printf("Successfully initialized the motor.\n"); }
     System_flush();
-    enableMotor();
-    setDuty(25);
-    updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
-                GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
-                GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
+//    enableMotor();
+//    setDuty(25);
+//    updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
+//                GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
+//                GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
+}
 
-
+//*****************************************************************************
+// Main
+//*****************************************************************************
+int main(void) {
+    System_printf("Starting system initialization\n");
+    System_flush();
+    /* Call board init functions */
+    Board_initGeneral();
+    Board_initGPIO();
+    Board_initI2C();
+    Board_initUART();
     initUART();
     System_printf(  "System initialization successful\n"
                     "Starting vehicle motor system\n");
     System_flush();
+    initMotor();
     BIOS_start();
     return 0;
 }
