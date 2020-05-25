@@ -11,9 +11,10 @@
 #include <xdc/cfg/global.h>
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
-#include <ti/sysbios/knl/Task.h>
-#include <ti/sysbios/knl/Swi.h>
 #include <ti/sysbios/hal/Hwi.h>
+#include <ti/sysbios/knl/Swi.h>
+#include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Event.h>
 #include <ti/sysbios/gates/GateHwi.h>
 /* TI-RTOS Header files */
 #include <ti/drivers/GPIO.h>

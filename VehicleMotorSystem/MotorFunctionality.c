@@ -50,11 +50,11 @@
 // Hardware Interrupt - triggered by the Hall Effect Sensors (A, B and C)
 //*****************************************************************************
 void ISRHall() {
-    Event_post(updateMotor, Event_Id_00);
+    Event_post(EventUpdateMotor, Event_Id_00);
 }
 
 //*****************************************************************************
-// Initialise the Motor
+// Initialize the Motor
 //*****************************************************************************
 void initMotor() {
     // Define the interrupt pins
@@ -88,7 +88,7 @@ void initMotor() {
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
     UInt motor_post_check;
     while (1) {
-        motor_post_check = Event_pend(updateMotor, Event_Id_NONE, Event_Id_00, BIOS_WAIT_FOREVER);
+        motor_post_check = Event_pend(EventUpdateMotor, Event_Id_NONE, Event_Id_00, BIOS_WAIT_FOREVER);
         if (motor_post_check) {
             updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                         GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
