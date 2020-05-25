@@ -68,47 +68,6 @@ void initUART() {
 }
 
 //*****************************************************************************
-// Hardware Interrupt - triggered by the Hall Effect Sensors (A, B and C)
-//*****************************************************************************
-void ISRHall() {
-    updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
-                GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
-                GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-}
-
-void initMotor() {
-    // Define the interrupt pins
-    GPIOPinTypeGPIOInput(GPIO_PORTM_BASE, GPIO_PIN_3); // Hall A
-    GPIOPinTypeGPIOInput(GPIO_PORTH_BASE, GPIO_PIN_2); // Hall B
-    GPIOPinTypeGPIOInput(GPIO_PORTN_BASE, GPIO_PIN_2); // Hall C
-    // Interrupt for hall sensor pins
-    GPIOPadConfigSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
-    GPIOPadConfigSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
-    GPIOPadConfigSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
-    // Set interrupt on both rising and falling edge
-    GPIOIntTypeSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_BOTH_EDGES);
-    GPIOIntTypeSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_BOTH_EDGES);
-    GPIOIntTypeSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_BOTH_EDGES);
-    // Enable the pins
-    GPIOIntEnable(GPIO_PORTM_BASE, GPIO_PIN_3);
-    GPIOIntEnable(GPIO_PORTH_BASE, GPIO_PIN_2);
-    GPIOIntEnable(GPIO_PORTN_BASE, GPIO_PIN_2);
-    IntMasterEnable();
-    // Start the motor
-    Error_Block eb;
-    Error_init(&eb);
-    initMotorLib(50, &eb); // set the frequency of the PWM (1/50e-6) = 20Khz
-    if (!&eb) { System_printf("Unsuccessfully initialized the motor.\n"); }
-    else { System_printf("Successfully initialized the motor.\n"); }
-    System_flush();
-//    enableMotor();
-//    setDuty(25);
-//    updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
-//                GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
-//                GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-}
-
-//*****************************************************************************
 // Main
 //*****************************************************************************
 int main(void) {
@@ -123,7 +82,6 @@ int main(void) {
     System_printf(  "System initialization successful\n"
                     "Starting vehicle motor system\n");
     System_flush();
-    initMotor();
     BIOS_start();
     return 0;
 }
