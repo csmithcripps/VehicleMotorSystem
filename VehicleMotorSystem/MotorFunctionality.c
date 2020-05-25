@@ -50,7 +50,12 @@
 // Hardware Interrupt - triggered by the Hall Effect Sensors (A, B and C)
 //*****************************************************************************
 void ISRHall() {
-    Event_post(EventUpdateMotor, Event_Id_00);
+    GPIOIntClear(GPIO_PORTM_BASE, GPIO_PIN_3);
+    GPIOIntClear(GPIO_PORTH_BASE, GPIO_PIN_2);
+    GPIOIntClear(GPIO_PORTN_BASE, GPIO_PIN_2);
+    updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
+                GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
+                GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
 }
 
 //*****************************************************************************
@@ -83,16 +88,19 @@ void initMotor() {
     System_flush();
     enableMotor();
     setDuty(25);
+}
+
+//*****************************************************************************
+// Starts the Motor
+//*****************************************************************************
+void SWIstartMotor() {
+    setDuty(25);
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-    UInt motor_post_check;
-    while (1) {
-        motor_post_check = Event_pend(EventUpdateMotor, Event_Id_NONE, Event_Id_00, BIOS_WAIT_FOREVER);
-        if (motor_post_check) {
-            updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
-                        GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
-                        GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-        }
-    }
 }
+
+void SWIstopMotor() {
+    setDuty(0);
+}
+

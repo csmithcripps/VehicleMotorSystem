@@ -47,6 +47,7 @@ extern tCanvasWidget g_psPanels[];
 // Shared resources that use semaphores
 //*****************************************************************************
 time_t t; // semTime
+struct tm *tm;
 extern int SpeedLimit; // semSpeedLimit
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
@@ -216,7 +217,6 @@ void OnStartStop(tWidget *psWidget) {
     else { Start(); }
 }
 
-
 void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
     static char pcSpeedText[5];
     static char pcAccelText[5];
@@ -287,6 +287,7 @@ void Start() {
     PushButtonFillColorSet(&g_sStartStop, ClrRed);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrDarkRed);
     WidgetPaint((tWidget *)&g_sStartStop);
+    Swi_post(motorStart);
 }
 
 void Stop() {
@@ -296,18 +297,16 @@ void Stop() {
     PushButtonFillColorSet(&g_sStartStop, ClrLimeGreen);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrGreen);
     WidgetPaint((tWidget *)&g_sStartStop);
+    Swi_post(motorStop);
 }
 
 bool update;
 void UpdateTime() {
     while(1) {
-        if (t != time(NULL) + 36000) {
-            Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-            update = true;
-            Semaphore_post(semTime);
-            t = time(NULL) + 36000;
-        }
-        Task_sleep(100);
+        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+        update = true;
+        Semaphore_post(semTime);
+        Task_sleep(1000);
     }
 }
 
@@ -317,6 +316,8 @@ void UiStart() {
     char tempStr[40];
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
+
+    t = time(NULL);
 
     Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
     GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
@@ -354,8 +355,7 @@ void UiStart() {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
             update = false;
             Semaphore_post(semTime);
-
-            struct tm *tm = gmtime(&t);
+            tm = gmtime(&t);
 
             sRect.i16XMin = 1;
             sRect.i16YMin = 1;
@@ -366,11 +366,16 @@ void UiStart() {
 
             GrContextForegroundSet(&sContext, ClrWhite);
             GrContextFontSet(&sContext, &g_sFontCm20);
+
+            IntMasterDisable();
             strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
-            GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
+            IntMasterEnable();
+//            IntMasterDisable();
+//            GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
+//            IntMasterEnable();
         }
-        // Process any messages in the widget message queue.
+        //Process any messages in the widget message queue.
         WidgetMessageQueueProcess();
-        Task_sleep(1);
+        Task_sleep(20);
     }
 }
