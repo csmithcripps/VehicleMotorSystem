@@ -28,6 +28,7 @@
 #include "drivers/Kentec320x240x16_ssd2119_spi.h"
 #include "drivers/touch.h"
 #include "Board.h"
+#include <ti/sysbios/hal/Seconds.h>
 
 //*****************************************************************************
 // Forward declarations for the globals required to define the widgets at
@@ -303,10 +304,11 @@ void Stop() {
 bool update;
 void UpdateTime() {
     while(1) {
+        if (t != time(NULL)) {
         Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
         update = true;
         Semaphore_post(semTime);
-        Task_sleep(1000);
+        }
     }
 }
 
@@ -316,8 +318,8 @@ void UiStart() {
     char tempStr[40];
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
-
-    t = time(NULL) + 36000;
+    Seconds_set(time(NULL) + 36000);
+    t = Seconds_get;
 
     Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
     GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
@@ -355,7 +357,7 @@ void UiStart() {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
             update = false;
             Semaphore_post(semTime);
-            t++;
+            t = time(NULL);
             tm = gmtime(&t);
 
             sRect.i16XMin = 1;
