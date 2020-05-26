@@ -317,7 +317,7 @@ void UiStart() {
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
 
-    t = time(NULL);
+    t = time(NULL) + 36000;
 
     Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
     GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
@@ -355,6 +355,7 @@ void UiStart() {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
             update = false;
             Semaphore_post(semTime);
+            t++;
             tm = gmtime(&t);
 
             sRect.i16XMin = 1;
@@ -366,13 +367,10 @@ void UiStart() {
 
             GrContextForegroundSet(&sContext, ClrWhite);
             GrContextFontSet(&sContext, &g_sFontCm20);
-
             IntMasterDisable();
             strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
             IntMasterEnable();
-//            IntMasterDisable();
-//            GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
-//            IntMasterEnable();
+            GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
         }
         //Process any messages in the widget message queue.
         WidgetMessageQueueProcess();
