@@ -125,17 +125,17 @@ tCanvasWidget g_psPanels[] = {
 //*****************************************************************************
 // The buttons at the bottom of the screen.
 //*****************************************************************************
-RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 3, 200, 80, 35,
-                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
-                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
+RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 10, 200, 80, 35,
+                  (PB_STYLE_FILL | PB_STYLE_AUTO_REPEAT),
+                  ClrBlack, ClrBlack, ClrWhite, ClrWhite, &g_sFontCm20,
                   "-", 0, 0, 0, 0, OnPrevious);
 
-RectangularButton(g_sNext, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 240, 200, 80, 35,
+RectangularButton(g_sNext, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 200, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
                   ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
                   "+", 0, 0, 0, 0, OnNext);
 
-RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 110, 200, 110, 35,
+RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 105, 200, 110, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
                   ClrLimeGreen, ClrGreen, ClrWhite, ClrWhite, &g_sFontCm20b,
                   "Start", 0, 0, 0, 0, OnStartStop);

@@ -49,11 +49,12 @@
 volatile int rpm = 0;
 volatile int count = 0;
 
-extern int duty_motor;
 extern int duty_screen; // semSpeedLimit
+int duty_trans;
+int duty_motor;
 
 //*****************************************************************************
-// Hardware Interrupt - triggered by the Hall Effect Sensors (A, B and C)
+// Rotate the Motor (HWI)
 //*****************************************************************************
 void ISRHall() {
     GPIOIntClear(GPIO_PORTM_BASE, GPIO_PIN_3);
@@ -95,14 +96,13 @@ void initMotor() {
     System_flush();
     enableMotor();
     setDuty(DEFAULT_DUTY);
-//    while(1) {
-//        System_printf("%d\n", rpm);
-//        System_flush();
-//        Task_sleep(SECOND);
-//    }
 }
 
+//*****************************************************************************
+// Measure the Motor RPM (Timer)
+//*****************************************************************************
 void timerRPM() {
+    // calculate the RPM every timer interrupt
     TimerIntClear(TIMER4_BASE, TIMER_BOTH);
     int rot_per_sec = 10 * count / HALL_INT_PER_REV;
     rpm = SECS_IN_MIN * rot_per_sec;
@@ -110,26 +110,25 @@ void timerRPM() {
 }
 
 //*****************************************************************************
-// Starts the Motor
+// Starts the Motor (SWI)
 //*****************************************************************************
 void SWIstartMotor() {
     Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
     duty_motor = duty_screen;
     setDuty(duty_motor);
-    System_printf("\t%d\n", duty_motor);
-    System_flush();
     Semaphore_post(semSpeedLimit);
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
 }
 
+//*****************************************************************************
+// Stops the Motor (SWI)
+//*****************************************************************************
 void SWIstopMotor() {
     setDuty(0);
     Semaphore_post(semSpeedLimit);
     duty_motor = 0;
-    System_printf("\t%d\n", duty_motor);
-    System_flush();
     Semaphore_post(semSpeedLimit);
 }
 
