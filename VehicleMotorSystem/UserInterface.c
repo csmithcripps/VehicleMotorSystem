@@ -232,7 +232,6 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
     if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]) {
         Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
         duty_screen = (int)round(MAX_DUTY * ((float)i32Value / 100));
-//        if (MotorOn) { duty_screen = (int)round(MAX_DUTY * ((float)i32Value / 100)); }
         Semaphore_post(semSpeedLimit);
 
         System_printf("%d\n", duty_screen);

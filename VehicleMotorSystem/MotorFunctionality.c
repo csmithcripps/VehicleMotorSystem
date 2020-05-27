@@ -115,7 +115,7 @@ void timerRPM() {
 void SWIstartMotor() {
     Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
     duty_motor = duty_screen;
-    setDuty(DEFAULT_DUTY);
+    setDuty(duty_motor);
     System_printf("\t%d\n", duty_motor);
     System_flush();
     Semaphore_post(semSpeedLimit);
