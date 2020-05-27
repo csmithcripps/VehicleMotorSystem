@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <time.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
@@ -28,6 +29,7 @@
 #include "drivers/Kentec320x240x16_ssd2119_spi.h"
 #include "drivers/touch.h"
 #include "Board.h"
+#include "driverlib/interrupt.h"
 
 //*****************************************************************************
 // Forward declarations for the globals required to define the widgets at
@@ -47,7 +49,10 @@ extern tCanvasWidget g_psPanels[];
 // Shared resources that use semaphores
 //*****************************************************************************
 time_t t; // semTime
-extern int SpeedLimit; // semSpeedLimit
+struct tm *tm;
+volatile int duty_motor = DEFAULT_DUTY;
+volatile int duty_screen = DEFAULT_DUTY;
+
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
 extern int TempLimit; // semTempLimit
@@ -78,19 +83,19 @@ Canvas(g_sSliderValueCanvas, g_psPanels, &g_sSliderValueCanvas1, 0,
 
 tSliderWidget g_psSliders[] = {
     SliderStruct(  g_psPanels, g_psSliders + 1, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 35, 200, 30, 0, 95, 50,
+                   105, 35, 190, 30, 0, 100, 50,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange ),
     SliderStruct(  g_psPanels, g_psSliders + 2, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 77, 200, 30, 0, 95, 50,
+                   105, 77, 190, 30, 0, 100, 50,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange ),
     SliderStruct(  g_psPanels, g_psSliders + 3, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 119, 200, 30, 0, 95, 50,
+                   105, 119, 190, 30, 0, 100, 50,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
     SliderStruct(  g_psPanels, &g_sSliderValueCanvas, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 161, 200, 30, 0, 95, 50,
+                   105, 161, 190, 30, 0, 100, 50,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
 };
@@ -120,17 +125,20 @@ tCanvasWidget g_psPanels[] = {
 //*****************************************************************************
 // The buttons at the bottom of the screen.
 //*****************************************************************************
-RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 200, 50, 40,
-                  (PB_STYLE_FILL | PB_STYLE_AUTO_REPEAT), ClrBlack, ClrBlack, ClrWhite,
-                  ClrWhite, &g_sFontCm20, "-", 0, 0, 0, 0, OnPrevious);
+RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 10, 200, 80, 35,
+                  (PB_STYLE_FILL | PB_STYLE_AUTO_REPEAT),
+                  ClrBlack, ClrBlack, ClrWhite, ClrWhite, &g_sFontCm20,
+                  "-", 0, 0, 0, 0, OnPrevious);
 
-RectangularButton(g_sNext, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 270, 200, 50, 40,
+RectangularButton(g_sNext, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 200, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
-                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20, "+", 0, 0, 0, 0, OnNext);
+                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
+                  "+", 0, 0, 0, 0, OnNext);
 
-RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 70, 200, 180, 40,
+RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 105, 200, 110, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
-                  ClrLimeGreen, ClrGreen, ClrWhite, ClrWhite, &g_sFontCm20b, "Start", 0, 0, 0, 0, OnStartStop);
+                  ClrLimeGreen, ClrGreen, ClrWhite, ClrWhite, &g_sFontCm20b,
+                  "Start", 0, 0, 0, 0, OnStartStop);
 
 //*****************************************************************************
 // The panel that is currently being displayed.
@@ -197,8 +205,7 @@ void OnNext(tWidget *psWidget) {
     }
     // See if this is the last panel.
     if(g_ui32Panel == 1) {
-        // Clear the next button from the display since the last panel is being
-        // displayed.
+        // Clear the next button from the display since the last panel is being displayed.
         PushButtonTextOff(&g_sNext);
         PushButtonOutlineOff(&g_sNext);
         PushButtonFillColorSet(&g_sNext, ClrBlack);
@@ -216,7 +223,6 @@ void OnStartStop(tWidget *psWidget) {
     else { Start(); }
 }
 
-
 void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
     static char pcSpeedText[5];
     static char pcAccelText[5];
@@ -225,17 +231,19 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]) {
         Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        SpeedLimit = MAX_SPEED * i32Value;
+        duty_screen = (int)round(MAX_DUTY * ((float)i32Value / 100));
         Semaphore_post(semSpeedLimit);
+
+        System_printf("%d\n", duty_screen);
+        System_flush();
 
         usprintf(pcSpeedText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[MOTOR_SPEED_SLIDER], pcSpeedText);
         WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
-    }
+}
 
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
         Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        SpeedLimit = MAX_ACCELERATION * i32Value;
         Semaphore_post(semSpeedLimit);
 
         usprintf(pcAccelText, "%3d%%", i32Value);
@@ -245,7 +253,6 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]) {
         Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        SpeedLimit = MAX_CURRENT * i32Value;
         Semaphore_post(semSpeedLimit);
 
         usprintf(pcAmpereText, "%3d%%", i32Value);
@@ -255,7 +262,6 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]) {
         Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        SpeedLimit = MAX_TEMPARATURE * i32Value;
         Semaphore_post(semSpeedLimit);
 
         usprintf(pcTempText, "%3d%%", i32Value);
@@ -287,6 +293,7 @@ void Start() {
     PushButtonFillColorSet(&g_sStartStop, ClrRed);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrDarkRed);
     WidgetPaint((tWidget *)&g_sStartStop);
+    Swi_post(motorStart);
 }
 
 void Stop() {
@@ -296,18 +303,16 @@ void Stop() {
     PushButtonFillColorSet(&g_sStartStop, ClrLimeGreen);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrGreen);
     WidgetPaint((tWidget *)&g_sStartStop);
+    Swi_post(motorStop);
 }
 
 bool update;
 void UpdateTime() {
     while(1) {
-        if (t != time(NULL) + 36000) {
-            Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-            update = true;
-            Semaphore_post(semTime);
-            t = time(NULL) + 36000;
-        }
-        Task_sleep(100);
+        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+        update = true;
+        Semaphore_post(semTime);
+        Task_sleep(1000);
     }
 }
 
@@ -317,6 +322,8 @@ void UiStart() {
     char tempStr[40];
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
+
+    t = time(NULL) + 36000;
 
     Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
     GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
@@ -354,8 +361,8 @@ void UiStart() {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
             update = false;
             Semaphore_post(semTime);
-
-            struct tm *tm = gmtime(&t);
+            t++;
+            tm = gmtime(&t);
 
             sRect.i16XMin = 1;
             sRect.i16YMin = 1;
@@ -366,11 +373,13 @@ void UiStart() {
 
             GrContextForegroundSet(&sContext, ClrWhite);
             GrContextFontSet(&sContext, &g_sFontCm20);
+            IntMasterDisable();
             strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
+            IntMasterEnable();
             GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
         }
-        // Process any messages in the widget message queue.
+        //Process any messages in the widget message queue.
         WidgetMessageQueueProcess();
-        Task_sleep(1);
+        Task_sleep(20);
     }
 }
