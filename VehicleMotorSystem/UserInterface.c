@@ -52,6 +52,8 @@ time_t t; // semTime
 struct tm *tm;
 volatile int duty_screen = DEFAULT_DUTY;
 
+extern int rpm;
+
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
 extern int TempLimit; // semTempLimit
@@ -236,20 +238,17 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
         usprintf(pcSpeedText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[MOTOR_SPEED_SLIDER], pcSpeedText);
         WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
-}
-
+    }
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
         usprintf(pcAccelText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
         WidgetPaint((tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]);
     }
-
     else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]) {
         usprintf(pcAmpereText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[CURRENT_LIMIT_SLIDER], pcAmpereText);
         WidgetPaint((tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]);
     }
-
     else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]) {
         usprintf(pcTempText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[TEMPERATURE_LIMIT_SLIDER], pcTempText);
@@ -290,7 +289,6 @@ void Stop() {
     PushButtonFillColorSet(&g_sStartStop, ClrLimeGreen);
     PushButtonFillColorPressedSet(&g_sStartStop, ClrGreen);
     WidgetPaint((tWidget *)&g_sStartStop);
-    Swi_post(motorStop);
 }
 
 bool update;
@@ -364,6 +362,10 @@ void UiStart() {
             strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
             IntMasterEnable();
             GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
+
+            sprintf(tempStr, "RPM: %d", rpm);
+            GrStringDraw(&sContext, tempStr,
+                         -1, 250-2-sizeof(tempStr), 2, 0);
         }
         //Process any messages in the widget message queue.
         WidgetMessageQueueProcess();

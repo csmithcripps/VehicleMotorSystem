@@ -115,7 +115,8 @@ void timerRPM() {
             if (duty_motor < duty_screen) { duty_error = 0.5; }
             else if (duty_motor > duty_screen) { duty_error = -0.5; }
             else { duty_error = 0; }
-        } else if (duty_motor > 0) {
+        }
+        else if (duty_motor > 0) {
             duty_error = -2;
         }
     Semaphore_post(semDutyScreen);
@@ -140,18 +141,5 @@ void SWIstartMotor() {
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-}
-
-//*****************************************************************************
-// Stops the Motor (SWI)
-//*****************************************************************************
-void SWIstopMotor() {
-//    // stop the motor
-//    setDuty(0);
-//    // set the motor speed to 0
-//    Semaphore_post(semDutyMotor);
-//        duty_motor = 0;
-//        duty_error = 0;
-//    Semaphore_post(semDutyMotor);
 }
 

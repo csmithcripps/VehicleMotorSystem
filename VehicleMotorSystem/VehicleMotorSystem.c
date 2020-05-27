@@ -36,6 +36,7 @@
 #include "Drivers/motorlib.h"
 /* Other useful library files */
 #include "inc/hw_memmap.h"
+#include "inc/hw_ints.h"
 #include "inc/hw_sysctl.h"
 #include "inc/hw_types.h"
 #include "inc/hw_timer.h"
@@ -43,26 +44,9 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
 #include "driverlib/timer.h"
+#include "driverlib/uart.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
-
-//*****************************************************************************
-// Global variables
-//*****************************************************************************
-UART_Handle uart;
-
-//*****************************************************************************
-// Initialize the UART connection
-//*****************************************************************************
-void initUART() {
-    UART_Params uartParams;
-    UART_Params_init(&uartParams);
-    uartParams.baudRate = 115200;
-    uart = UART_open(Board_UART0, &uartParams);
-    if (uart == NULL) { System_abort("Error opening the UART"); }
-    System_printf("UART Initialized\n");
-    System_flush();
-}
 
 //*****************************************************************************
 // Main
@@ -73,8 +57,6 @@ int main(void) {
     Board_initGeneral();
     Board_initGPIO();
     Board_initI2C();
-    Board_initUART();
-    initUART();
     System_printf(  "System initialization successful\n"
                     "Starting vehicle motor system\n");
     System_flush();
