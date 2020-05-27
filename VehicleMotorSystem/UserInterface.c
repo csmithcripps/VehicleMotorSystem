@@ -50,7 +50,6 @@ extern tCanvasWidget g_psPanels[];
 //*****************************************************************************
 time_t t; // semTime
 struct tm *tm;
-volatile int duty_motor = DEFAULT_DUTY;
 volatile int duty_screen = DEFAULT_DUTY;
 
 extern int AccelerationLimit; // semAccelerationLimit
@@ -217,7 +216,7 @@ void OnNext(tWidget *psWidget) {
 //*****************************************************************************
 // Handles presses of the start/stop button.
 //*****************************************************************************
-bool MotorOn = false;
+volatile bool MotorOn = false;
 void OnStartStop(tWidget *psWidget) {
     if (MotorOn) { Stop(); }
     else { Start(); }
@@ -230,12 +229,9 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
     static char pcTempText[5];
 
     if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]) {
-        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        duty_screen = (int)round(MAX_DUTY * ((float)i32Value / 100));
-        Semaphore_post(semSpeedLimit);
-
-        System_printf("%d\n", duty_screen);
-        System_flush();
+        Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
+            duty_screen = (int)round(MAX_DUTY * ((float)i32Value / 100));
+        Semaphore_post(semDutyScreen);
 
         usprintf(pcSpeedText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[MOTOR_SPEED_SLIDER], pcSpeedText);
@@ -243,27 +239,18 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 }
 
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
-        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        Semaphore_post(semSpeedLimit);
-
         usprintf(pcAccelText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
         WidgetPaint((tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]);
     }
 
     else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]) {
-        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        Semaphore_post(semSpeedLimit);
-
         usprintf(pcAmpereText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[CURRENT_LIMIT_SLIDER], pcAmpereText);
         WidgetPaint((tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]);
     }
 
     else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]) {
-        Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-        Semaphore_post(semSpeedLimit);
-
         usprintf(pcTempText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[TEMPERATURE_LIMIT_SLIDER], pcTempText);
         WidgetPaint((tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]);

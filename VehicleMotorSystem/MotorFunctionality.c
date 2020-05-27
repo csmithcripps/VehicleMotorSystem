@@ -49,9 +49,10 @@
 volatile int rpm = 0;
 volatile int count = 0;
 
+extern bool MotorOn;
 extern int duty_screen; // semSpeedLimit
-int duty_trans;
-int duty_motor;
+float duty_error;
+float duty_motor;
 
 //*****************************************************************************
 // Rotate the Motor (HWI)
@@ -95,6 +96,7 @@ void initMotor() {
     else { System_printf("Successfully initialized the motor.\n"); }
     System_flush();
     enableMotor();
+    // start the motor with normal speed
     setDuty(DEFAULT_DUTY);
 }
 
@@ -107,16 +109,34 @@ void timerRPM() {
     int rot_per_sec = 10 * count / HALL_INT_PER_REV;
     rpm = SECS_IN_MIN * rot_per_sec;
     count = 0;
+    // update the transient factor
+    Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
+        if (MotorOn) {
+            if (duty_motor < duty_screen) { duty_error = 0.5; }
+            else if (duty_motor > duty_screen) { duty_error = -0.5; }
+            else { duty_error = 0; }
+        } else if (duty_motor > 0) {
+            duty_error = -2;
+        }
+    Semaphore_post(semDutyScreen);
+    // update the motor speed
+    Semaphore_pend(semDutyMotor, BIOS_WAIT_FOREVER);
+        duty_motor += (float)duty_error;
+        if (duty_motor < 0) { duty_motor = 0; }
+        setDuty(duty_motor);
+    Semaphore_post(semDutyMotor);
 }
 
 //*****************************************************************************
 // Starts the Motor (SWI)
 //*****************************************************************************
 void SWIstartMotor() {
-    Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-    duty_motor = duty_screen;
-    setDuty(duty_motor);
-    Semaphore_post(semSpeedLimit);
+    // set the motor speed
+    Semaphore_pend(semDutyMotor, BIOS_WAIT_FOREVER);
+        duty_motor = 10;
+        setDuty(duty_motor);
+    Semaphore_post(semDutyMotor);
+    // update the location of the motor
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
@@ -126,9 +146,12 @@ void SWIstartMotor() {
 // Stops the Motor (SWI)
 //*****************************************************************************
 void SWIstopMotor() {
-    setDuty(0);
-    Semaphore_post(semSpeedLimit);
-    duty_motor = 0;
-    Semaphore_post(semSpeedLimit);
+//    // stop the motor
+//    setDuty(0);
+//    // set the motor speed to 0
+//    Semaphore_post(semDutyMotor);
+//        duty_motor = 0;
+//        duty_error = 0;
+//    Semaphore_post(semDutyMotor);
 }
 
