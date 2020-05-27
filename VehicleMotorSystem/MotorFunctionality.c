@@ -46,6 +46,12 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
 
+volatile int rpm = 0;
+volatile int count = 0;
+
+extern int duty_motor;
+extern int duty_screen; // semSpeedLimit
+
 //*****************************************************************************
 // Hardware Interrupt - triggered by the Hall Effect Sensors (A, B and C)
 //*****************************************************************************
@@ -56,6 +62,7 @@ void ISRHall() {
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
+    count++;
 }
 
 //*****************************************************************************
@@ -87,14 +94,31 @@ void initMotor() {
     else { System_printf("Successfully initialized the motor.\n"); }
     System_flush();
     enableMotor();
-    setDuty(25);
+    setDuty(DEFAULT_DUTY);
+//    while(1) {
+//        System_printf("%d\n", rpm);
+//        System_flush();
+//        Task_sleep(SECOND);
+//    }
+}
+
+void timerRPM() {
+    TimerIntClear(TIMER4_BASE, TIMER_BOTH);
+    int rot_per_sec = 10 * count / HALL_INT_PER_REV;
+    rpm = SECS_IN_MIN * rot_per_sec;
+    count = 0;
 }
 
 //*****************************************************************************
 // Starts the Motor
 //*****************************************************************************
 void SWIstartMotor() {
-    setDuty(25);
+    Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
+    duty_motor = duty_screen;
+    setDuty(DEFAULT_DUTY);
+    System_printf("\t%d\n", duty_motor);
+    System_flush();
+    Semaphore_post(semSpeedLimit);
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
@@ -102,5 +126,10 @@ void SWIstartMotor() {
 
 void SWIstopMotor() {
     setDuty(0);
+    Semaphore_post(semSpeedLimit);
+    duty_motor = 0;
+    System_printf("\t%d\n", duty_motor);
+    System_flush();
+    Semaphore_post(semSpeedLimit);
 }
 

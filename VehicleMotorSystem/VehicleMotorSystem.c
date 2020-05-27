@@ -50,10 +50,6 @@
 // Global variables
 //*****************************************************************************
 UART_Handle uart;
-int SpeedLimit;         // desired speed
-int AccelerationLimit;  // max acceleration
-int CurrentLimit;       // max current
-int TempLimit;          // max temperature
 
 //*****************************************************************************
 // Initialize the UART connection
@@ -74,7 +70,6 @@ void initUART() {
 int main(void) {
     System_printf("Starting system initialization\n");
     System_flush();
-    /* Call board init functions */
     Board_initGeneral();
     Board_initGPIO();
     Board_initI2C();
