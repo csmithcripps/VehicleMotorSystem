@@ -51,9 +51,10 @@ extern tCanvasWidget g_psPanels[];
 time_t t; // semTime
 struct tm *tm;
 volatile int duty_screen = DEFAULT_DUTY;
+volatile int display_page;
 
 extern int rpm;
-
+extern int motor_rpm[];
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
 extern int TempLimit; // semTempLimit
@@ -61,22 +62,22 @@ extern int TempLimit; // semTempLimit
 //*****************************************************************************
 // The first panel
 //*****************************************************************************
-Canvas(g_sSliderValueCanvas4, g_psPanels, 0, 0,
-       &g_sKentec320x240x16_SSD2119, 1, 158, 95, 40,
-       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-       &g_sFontCm18, "Temperature", 0, 0);
-Canvas(g_sSliderValueCanvas3, g_psPanels, &g_sSliderValueCanvas4, 0,
-       &g_sKentec320x240x16_SSD2119, 1, 116, 95, 40,
-       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-       &g_sFontCm18, "Current", 0, 0);
-Canvas(g_sSliderValueCanvas2, g_psPanels, &g_sSliderValueCanvas3, 0,
-       &g_sKentec320x240x16_SSD2119, 1, 74, 95, 40,
-       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-       &g_sFontCm18, "Acceleration", 0, 0);
 Canvas(g_sSliderValueCanvas1, g_psPanels, &g_sSliderValueCanvas2, 0,
        &g_sKentec320x240x16_SSD2119, 1, 32, 95, 40,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
        &g_sFontCm18, "Motor Speed", 0, 0);
+Canvas(g_sSliderValueCanvas2, g_psPanels, &g_sSliderValueCanvas3, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 74, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Acceleration", 0, 0);
+Canvas(g_sSliderValueCanvas3, g_psPanels, &g_sSliderValueCanvas4, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 116, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Current", 0, 0);
+Canvas(g_sSliderValueCanvas4, g_psPanels, 0, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 158, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Temperature", 0, 0);
 Canvas(g_sSliderValueCanvas, g_psPanels, &g_sSliderValueCanvas1, 0,
        &g_sKentec320x240x16_SSD2119, 0, 0, 0, 0,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
@@ -101,10 +102,10 @@ tSliderWidget g_psSliders[] = {
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
 };
 
-#define MOTOR_SPEED_SLIDER   0
-#define ALLOWABLE_ACCELLERATION_SLIDER   1
-#define CURRENT_LIMIT_SLIDER   2
-#define TEMPERATURE_LIMIT_SLIDER   3
+#define MOTOR_SPEED_SLIDER              0
+#define ALLOWABLE_ACCELLERATION_SLIDER  1
+#define CURRENT_LIMIT_SLIDER            2
+#define TEMPERATURE_LIMIT_SLIDER        3
 
 //*****************************************************************************
 // The second panel
@@ -150,6 +151,7 @@ uint32_t g_ui32Panel;
 // Handles presses of the previous panel button.
 //*****************************************************************************
 void OnPrevious(tWidget *psWidget) {
+    display_page = 1; // display the first page
     // There is nothing to be done if the first panel is already being
     // displayed.
     if(g_ui32Panel == 0) { return; }
@@ -185,6 +187,7 @@ void OnPrevious(tWidget *psWidget) {
 // Handles presses of the next panel button.
 //*****************************************************************************
 void OnNext(tWidget *psWidget) {
+    display_page = 2; // display the first page
     // There is nothing to be done if the last panel is already being
     // displayed.
     if(g_ui32Panel == 1) { return; }
@@ -260,16 +263,14 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 // Handles paint requests for the introduction canvas widget.
 //*****************************************************************************
 void OnPanel1(tWidget *psWidget, tContext *psContext) {
-    GrContextFontSet(psContext, &g_sFontCm18);
-    GrContextForegroundSet(psContext, ClrWhite);
-    GrStringDraw(psContext, "Motor Speed", -1, 5, 40, 0);
+    // nothing
 }
 
 //*****************************************************************************
 // Handles paint requests for the primitives canvas widget.
 //*****************************************************************************
 void OnPanel2(tWidget *psWidget, tContext *psContext) {
-    // Nothing
+    // nothing
 }
 
 void Start() {
@@ -295,15 +296,17 @@ bool update;
 void UpdateTime() {
     while(1) {
         Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-        update = true;
+            update = true;
         Semaphore_post(semTime);
         Task_sleep(1000);
     }
 }
 
+
 void UiStart() {
     tContext sContext;
     tRectangle sRect;
+    tRectangle sRect_rpm;
     char tempStr[40];
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
@@ -312,23 +315,19 @@ void UiStart() {
 
     Kentec320x240x16_SSD2119Init((uint32_t)cpuFreq.lo);
     GrContextInit(&sContext, &g_sKentec320x240x16_SSD2119);
-
     sRect.i16XMin = 0;
     sRect.i16YMin = 0;
     sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 1;
     sRect.i16YMax = 23;
     GrContextForegroundSet(&sContext, ClrDarkBlue);
     GrRectFill(&sContext, &sRect);
-
     GrContextForegroundSet(&sContext, ClrWhite);
     GrRectDraw(&sContext, &sRect);
-
     System_printf("Screen Initialized\n");
     System_flush();
 
     TouchScreenInit((uint32_t)cpuFreq.lo);
     TouchScreenCallbackSet(WidgetPointerMessage);
-
     System_printf("Touch Initialized\n");
     System_flush();
 
@@ -344,7 +343,7 @@ void UiStart() {
     while(1) {
         if (update) {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-            update = false;
+                update = false;
             Semaphore_post(semTime);
             t++;
             tm = gmtime(&t);
@@ -363,11 +362,44 @@ void UiStart() {
             IntMasterEnable();
             GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
 
-            sprintf(tempStr, "RPM: %d", rpm);
-            GrStringDraw(&sContext, tempStr,
-                         -1, 250-2-sizeof(tempStr), 2, 0);
+            if (display_page == 2) {
+                // draw rectangle around previous RPM
+                sRect_rpm.i16XMin = 35;
+                sRect_rpm.i16YMin = 70-2-18;
+                sRect_rpm.i16XMax = GrStringWidthGet(&sContext, tempStr, sizeof(tempStr));
+                sRect_rpm.i16YMax = 70;
+                GrContextForegroundSet(&sContext, ClrBlack);
+                GrRectFill(&sContext, &sRect_rpm);
+                // draw current RPM
+                GrContextFontSet(&sContext, &g_sFontCm18);
+                GrContextForegroundSet(&sContext, ClrWhite);
+                sprintf(tempStr, "RPM: %d", rpm);
+                GrStringDraw(&sContext, tempStr, -1, 35, 70-2-18, 0);
+                // draw rectangle around previous graph
+                sRect_rpm.i16XMin = 35;
+                sRect_rpm.i16YMin = 70;
+                sRect_rpm.i16XMax = 35+29*9;
+                sRect_rpm.i16YMax = 170;
+                GrContextForegroundSet(&sContext, ClrDarkBlue);
+                GrRectFill(&sContext, &sRect_rpm);
+                // draw graph
+                int i; int x = 35;
+                GrContextForegroundSet(&sContext, ClrWhite);
+                for (i = 0; i < 29; i++) {
+                    GrLineDraw(&sContext, x,   170-(float)motor_rpm[i]/7500*(170-70),
+                                          x+9, 170-(float)motor_rpm[i+1]/7500*(170-70));
+                    x += 9;
+                }
+                // label graph
+                GrStringDraw(&sContext, "7500", -1, 30-GrStringWidthGet(&sContext, "7500", sizeof("7500")), 70+2, 0);
+                GrStringDraw(&sContext, "0", -1, 30-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
+                GrStringDraw(&sContext, "3 seconds ago", -1, 35, 172, 0);
+                GrStringDraw(&sContext, "Now", -1,
+                             GrContextDpyWidthGet(&sContext)-10-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
+                             172, 0);
+            }
         }
-        //Process any messages in the widget message queue.
+        // Process any messages in the widget message queue.
         WidgetMessageQueueProcess();
         Task_sleep(20);
     }

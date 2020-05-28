@@ -47,10 +47,15 @@
 #include "driverlib/pin_map.h"
 
 volatile int rpm = 0;
-volatile int count = 0;
+volatile int hall_count = 0;
+volatile int timer_count = 0;
+volatile int motor_rpm[] = {0,0,0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,0,0};
 
 extern bool MotorOn;
 extern int duty_screen; // semSpeedLimit
+
 float duty_error;
 float duty_motor;
 
@@ -64,7 +69,7 @@ void ISRHall() {
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-    count++;
+    hall_count++;
 }
 
 //*****************************************************************************
@@ -104,11 +109,11 @@ void initMotor() {
 // Measure the Motor RPM (Timer)
 //*****************************************************************************
 void timerRPM() {
-    // calculate the RPM every timer interrupt
     TimerIntClear(TIMER4_BASE, TIMER_BOTH);
-    int rot_per_sec = 10 * count / HALL_INT_PER_REV;
+    // measure the RPM
+    int rot_per_sec = 10 * hall_count / HALL_INT_PER_REV;
     rpm = SECS_IN_MIN * rot_per_sec;
-    count = 0;
+    hall_count = 0;
     // update the transient factor
     Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
         if (MotorOn) {
@@ -126,6 +131,11 @@ void timerRPM() {
         if (duty_motor < 0) { duty_motor = 0; }
         setDuty(duty_motor);
     Semaphore_post(semDutyMotor);
+    // update the timer counter
+    timer_count++;
+    int i;
+    for (i = 0; i < 29; i++) { motor_rpm[i] = motor_rpm[i+1]; }
+    motor_rpm[29] = rpm;
 }
 
 //*****************************************************************************
