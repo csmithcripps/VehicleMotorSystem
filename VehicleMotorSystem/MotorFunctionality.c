@@ -47,11 +47,17 @@
 #include "driverlib/pin_map.h"
 
 volatile int rpm = 0;
-volatile int count = 0;
+volatile int hall_count = 0;
+volatile int timer_count = 0;
+volatile int motor_rpm[] = {0,0,0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,0,0};
 
+extern bool MotorOn;
 extern int duty_screen; // semSpeedLimit
-int duty_trans;
-int duty_motor;
+
+float duty_error;
+float duty_motor;
 
 //*****************************************************************************
 // Rotate the Motor (HWI)
@@ -63,7 +69,7 @@ void ISRHall() {
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-    count++;
+    hall_count++;
 }
 
 //*****************************************************************************
@@ -95,6 +101,7 @@ void initMotor() {
     else { System_printf("Successfully initialized the motor.\n"); }
     System_flush();
     enableMotor();
+    // start the motor with normal speed
     setDuty(DEFAULT_DUTY);
 }
 
@@ -102,33 +109,47 @@ void initMotor() {
 // Measure the Motor RPM (Timer)
 //*****************************************************************************
 void timerRPM() {
-    // calculate the RPM every timer interrupt
     TimerIntClear(TIMER4_BASE, TIMER_BOTH);
-    int rot_per_sec = 10 * count / HALL_INT_PER_REV;
+    // measure the RPM
+    int rot_per_sec = 10 * hall_count / HALL_INT_PER_REV;
     rpm = SECS_IN_MIN * rot_per_sec;
-    count = 0;
+    hall_count = 0;
+    // update the transient factor
+    Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
+        if (MotorOn) {
+            if (duty_motor < duty_screen) { duty_error = 0.5; }
+            else if (duty_motor > duty_screen) { duty_error = -0.5; }
+            else { duty_error = 0; }
+        }
+        else if (duty_motor > 0) {
+            duty_error = -2;
+        }
+    Semaphore_post(semDutyScreen);
+    // update the motor speed
+    Semaphore_pend(semDutyMotor, BIOS_WAIT_FOREVER);
+        duty_motor += (float)duty_error;
+        if (duty_motor < 0) { duty_motor = 0; }
+        setDuty(duty_motor);
+    Semaphore_post(semDutyMotor);
+    // update the timer counter
+    timer_count++;
+    int i;
+    for (i = 0; i < 29; i++) { motor_rpm[i] = motor_rpm[i+1]; }
+    motor_rpm[29] = rpm;
 }
 
 //*****************************************************************************
 // Starts the Motor (SWI)
 //*****************************************************************************
 void SWIstartMotor() {
-    Semaphore_pend(semSpeedLimit, BIOS_WAIT_FOREVER);
-    duty_motor = duty_screen;
-    setDuty(duty_motor);
-    Semaphore_post(semSpeedLimit);
+    // set the motor speed
+    Semaphore_pend(semDutyMotor, BIOS_WAIT_FOREVER);
+        duty_motor = 10;
+        setDuty(duty_motor);
+    Semaphore_post(semDutyMotor);
+    // update the location of the motor
     updateMotor(GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3),
                 GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2),
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
-}
-
-//*****************************************************************************
-// Stops the Motor (SWI)
-//*****************************************************************************
-void SWIstopMotor() {
-    setDuty(0);
-    Semaphore_post(semSpeedLimit);
-    duty_motor = 0;
-    Semaphore_post(semSpeedLimit);
 }
 
