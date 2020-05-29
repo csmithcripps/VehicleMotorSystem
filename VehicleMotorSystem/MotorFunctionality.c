@@ -46,6 +46,11 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
 
+#define MAX_ACC 0.25 // 0->MAX_RPM in ~14 seconds
+#define MAX_DEC -0.65 // e-stop: MAX_RPM->0 in ~7 seconds
+#define RPM_CHECK_FREQ_TO_SEC 10
+#define NUM_RPM_POINTS 29
+
 volatile int rpm = 0;
 volatile int hall_count = 0;
 volatile int timer_count = 0;
@@ -55,6 +60,7 @@ volatile int motor_rpm[] = {0,0,0,0,0,0,0,0,0,0,
 
 extern bool MotorOn;
 extern int duty_screen; // semSpeedLimit
+extern float duty_acc;
 
 float duty_error;
 float duty_motor;
@@ -102,7 +108,7 @@ void initMotor() {
     System_flush();
     enableMotor();
     // start the motor with normal speed
-    setDuty(DEFAULT_DUTY);
+    setDuty(DUTY_DEFAULT);
 }
 
 //*****************************************************************************
@@ -111,31 +117,31 @@ void initMotor() {
 void timerRPM() {
     TimerIntClear(TIMER4_BASE, TIMER_BOTH);
     // measure the RPM
-    int rot_per_sec = 10 * hall_count / HALL_INT_PER_REV;
+    int rot_per_sec = RPM_CHECK_FREQ_TO_SEC * hall_count / HALL_COUNT_PER_REV;
     rpm = SECS_IN_MIN * rot_per_sec;
     hall_count = 0;
     // update the transient factor
     Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
         if (MotorOn) {
-            if (duty_motor < duty_screen) { duty_error = 0.5; }
-            else if (duty_motor > duty_screen) { duty_error = -0.5; }
+            if (duty_motor < duty_screen) { duty_error =  duty_acc * MAX_ACC; }
+            else if (duty_motor > duty_screen) { duty_error = 0.7 * MAX_DEC; } // MAX_RPM->0 in ~10 seconds
             else { duty_error = 0; }
         }
         else if (duty_motor > 0) {
-            duty_error = -2;
+            duty_error = MAX_DEC; // TODO: this should not be at e-stop rate
         }
     Semaphore_post(semDutyScreen);
     // update the motor speed
     Semaphore_pend(semDutyMotor, BIOS_WAIT_FOREVER);
         duty_motor += (float)duty_error;
-        if (duty_motor < 0) { duty_motor = 0; }
+        if (duty_motor < 0) { duty_motor = DUTY_STOP; }
         setDuty(duty_motor);
     Semaphore_post(semDutyMotor);
     // update the timer counter
     timer_count++;
     int i;
-    for (i = 0; i < 29; i++) { motor_rpm[i] = motor_rpm[i+1]; }
-    motor_rpm[29] = rpm;
+    for (i = 0; i < NUM_RPM_POINTS; i++) { motor_rpm[i] = motor_rpm[i+1]; }
+    motor_rpm[NUM_RPM_POINTS] = rpm;
 }
 
 //*****************************************************************************
@@ -144,7 +150,7 @@ void timerRPM() {
 void SWIstartMotor() {
     // set the motor speed
     Semaphore_pend(semDutyMotor, BIOS_WAIT_FOREVER);
-        duty_motor = 10;
+        duty_motor = DUTY_KICK;
         setDuty(duty_motor);
     Semaphore_post(semDutyMotor);
     // update the location of the motor

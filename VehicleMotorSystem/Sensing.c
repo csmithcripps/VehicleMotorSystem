@@ -47,8 +47,6 @@
 #include "driverlib/uart.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
-
-
 #include "Drivers/opt3001.h"
 
 #define OPT3001_I2C_ADDRESS             0x47
@@ -61,16 +59,12 @@
 
 I2C_Handle i2c;
 
-
 volatile int lux = 0;
 volatile int luxArray[] = {0,0,0,0,0,0,0,0,0,0,
-                            0,0,0,0,0,0,0,0,0,0,
-                            0,0,0,0,0,0,0,0,0,0};
-
+                           0,0,0,0,0,0,0,0,0,0,
+                           0,0,0,0,0,0,0,0,0,0};
 
 void readOPT3001(){
-
-
     UChar readBuffer[2];
     I2C_Transaction i2cTransactionRead_OPT;
     UChar writeBuffer[3];
@@ -81,8 +75,6 @@ void readOPT3001(){
     i2cTransactionRead_OPT.writeCount = 1; /* Number of bytes to be written */
     i2cTransactionRead_OPT.readBuf = readBuffer; /* Buffer to be read */
     i2cTransactionRead_OPT.readCount = 2; /* Number of bytes to be read */
-
-
 
     uint16_t  rawData = 0;
     float     convertedLux = 0;
@@ -102,9 +94,6 @@ void readOPT3001(){
     }
 }
 
-
-
-
 void setupI2C(){
     // I2C Parameters
     UInt peripheralNum = 0; /* Such as I2C0 */
@@ -119,7 +108,6 @@ void setupI2C(){
     i2cTransactionWrite.readBuf = NULL; /* Buffer to be read */
     i2cTransactionWrite.readCount = 0; /* Number of bytes to be read */
 
-
     // Open I2C connection
     I2C_Params_init(&i2cParams);
     i2cParams.transferMode = I2C_MODE_BLOCKING;
@@ -127,18 +115,13 @@ void setupI2C(){
     i2cParams.bitRate = I2C_400kHz;
     i2c = I2C_open(peripheralNum, &i2cParams);
     if (i2c == NULL) {
-
-
         System_printf("i2c failed\n");
         System_flush();
     }
-
-
     System_printf("I2C Initialized\n");
     System_flush();
 
-
-    //Init OPT3001
+    // Init OPT3001
     writeBuffer[0] = REG_CONFIG;
     writeBuffer[1] = 0xC0;
     writeBuffer[2] = 0x10;
