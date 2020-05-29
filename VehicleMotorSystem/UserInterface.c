@@ -376,26 +376,26 @@ void UiStart() {
                 sprintf(tempStr, "RPM: %d", rpm);
                 GrStringDraw(&sContext, tempStr, -1, 35, 70-2-18, 0);
                 // draw rectangle around previous graph
-                sRect_rpm.i16XMin = 35;
+                sRect_rpm.i16XMin = 215-29*6;
                 sRect_rpm.i16YMin = 70;
-                sRect_rpm.i16XMax = 35+29*9;
+                sRect_rpm.i16XMax = 215;
                 sRect_rpm.i16YMax = 170;
                 GrContextForegroundSet(&sContext, ClrDarkBlue);
                 GrRectFill(&sContext, &sRect_rpm);
                 // draw graph
-                int i; int x = 35;
+                int i; int x = 215-29*6;
                 GrContextForegroundSet(&sContext, ClrWhite);
                 for (i = 0; i < 29; i++) {
                     GrLineDraw(&sContext, x,   170-(float)motor_rpm[i]/7500*(170-70),
-                                          x+9, 170-(float)motor_rpm[i+1]/7500*(170-70));
-                    x += 9;
+                                          x+6, 170-(float)motor_rpm[i+1]/7500*(170-70));
+                    x += 6;
                 }
                 // label graph
-                GrStringDraw(&sContext, "7500", -1, 30-GrStringWidthGet(&sContext, "7500", sizeof("7500")), 70+2, 0);
-                GrStringDraw(&sContext, "0", -1, 30-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
+                GrStringDraw(&sContext, "7500", -1, 35-GrStringWidthGet(&sContext, "7500", sizeof("7500")), 70+2, 0);
+                GrStringDraw(&sContext, "0", -1, 35-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
                 GrStringDraw(&sContext, "3 seconds ago", -1, 35, 172, 0);
                 GrStringDraw(&sContext, "Now", -1,
-                             GrContextDpyWidthGet(&sContext)-10-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
+                             215-2-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
                              172, 0);
             }
         }
