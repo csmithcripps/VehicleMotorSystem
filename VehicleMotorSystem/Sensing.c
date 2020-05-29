@@ -83,6 +83,7 @@ void readOPT3001(){
     i2cTransactionRead_OPT.readCount = 2; /* Number of bytes to be read */
 
 
+
     uint16_t  rawData = 0;
     float     convertedLux = 0;
     while(1){

@@ -53,6 +53,7 @@ struct tm *tm;
 volatile int duty_screen = DEFAULT_DUTY;
 volatile int display_page;
 
+extern int lux;
 extern int rpm;
 extern int motor_rpm[];
 extern int AccelerationLimit; // semAccelerationLimit
@@ -349,6 +350,7 @@ void UiStart() {
     tRectangle sRect;
     tRectangle sRect_rpm;
     char tempStr[40];
+    bool day = true;
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
 
@@ -389,6 +391,32 @@ void UiStart() {
     WidgetAdd((tWidget *)&g_sPanel2, (tWidget *) &g_sChooseAcc);
 
     while(1) {
+        if (day && lux < 5) {
+            sRect.i16XMin = 270;
+            sRect.i16YMin = 1;
+            sRect.i16XMax = 318;
+            sRect.i16YMax = 22;
+            GrContextForegroundSet(&sContext, ClrDarkBlue);
+            GrRectFill(&sContext, &sRect);
+            GrContextForegroundSet(&sContext, ClrWhite);
+            GrContextFontSet(&sContext, &g_sFontCm20);
+            GrStringDraw(&sContext, "Night", -1, 270, 2, 0);
+            GPIO_write(Board_LED1, 1);
+            day = false;
+        }
+        else if (!day && lux > 5) {
+            sRect.i16XMin = 270;
+            sRect.i16YMin = 1;
+            sRect.i16XMax = 318;
+            sRect.i16YMax = 22;
+            GrContextForegroundSet(&sContext, ClrDarkBlue);
+            GrRectFill(&sContext, &sRect);
+            GrContextForegroundSet(&sContext, ClrWhite);
+            GrContextFontSet(&sContext, &g_sFontCm20);
+            GrStringDraw(&sContext, "Day", -1, 285, 2, 0);
+            GPIO_write(Board_LED1, 0);
+            day = true;
+        }
         if (updateTime) {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
                 updateTime = false;
@@ -398,7 +426,7 @@ void UiStart() {
 
             sRect.i16XMin = 1;
             sRect.i16YMin = 1;
-            sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 2;
+            sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 100;
             sRect.i16YMax = 22;
             GrContextForegroundSet(&sContext, ClrDarkBlue);
             GrRectFill(&sContext, &sRect);
