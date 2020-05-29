@@ -60,7 +60,7 @@ extern int CurrentLimit; // semCurrentLimit
 extern int TempLimit; // semTempLimit
 
 //*****************************************************************************
-// The first panel
+// Text display after and next-to the sliders
 //*****************************************************************************
 Canvas(g_sSliderValueCanvas4, g_psPanels, 0, 0,
        &g_sKentec320x240x16_SSD2119, 1, 158, 95, 40,
@@ -78,11 +78,14 @@ Canvas(g_sSliderValueCanvas1, g_psPanels, &g_sSliderValueCanvas2, 0,
        &g_sKentec320x240x16_SSD2119, 1, 32, 95, 40,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
        &g_sFontCm18, "Motor Speed", 0, 0);
-Canvas(g_sSliderValueCanvas, g_psPanels, &g_sSliderValueCanvas1, 0,
+Canvas(g_sPanel1, g_psPanels, &g_sSliderValueCanvas1, 0,
        &g_sKentec320x240x16_SSD2119, 0, 0, 0, 0,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
        &g_sFontCm18, "", 0, 0);
 
+//*****************************************************************************
+// Sliders
+//*****************************************************************************
 tSliderWidget g_psSliders[] = {
     SliderStruct(  g_psPanels, g_psSliders + 1, 0, &g_sKentec320x240x16_SSD2119,
                    105, 35, 190, 30, 0, 100, 50,
@@ -96,7 +99,7 @@ tSliderWidget g_psSliders[] = {
                    105, 119, 190, 30, 0, 100, 50,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
-    SliderStruct(  g_psPanels, &g_sSliderValueCanvas, 0, &g_sKentec320x240x16_SSD2119,
+    SliderStruct(  g_psPanels, &g_sPanel1, 0, &g_sKentec320x240x16_SSD2119,
                    105, 161, 190, 30, 0, 100, 50,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
@@ -118,14 +121,38 @@ Canvas(g_sPanel2, g_psPanels + 1, 0, 0, &g_sKentec320x240x16_SSD2119, 0, 24,
 // black, overwriting the contents of the previous panel.
 //*****************************************************************************
 tCanvasWidget g_psPanels[] = {
-       CanvasStruct(0, 0, &g_psSliders, &g_sKentec320x240x16_SSD2119, 0, 24,
-                    320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
-       CanvasStruct(0, 0, &g_sPanel2, &g_sKentec320x240x16_SSD2119, 0, 24,
-                    320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
+       CanvasStruct(0, 0, &g_psSliders, &g_sKentec320x240x16_SSD2119,
+                    0, 24, 320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
+       CanvasStruct(0, 0, &g_sPanel2, &g_sKentec320x240x16_SSD2119,
+                    0, 24, 320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
 };
 
+void chooseTest(tWidget *psWidget) {
+    GPIO_toggle(Board_LED0);
+}
+
+RectangularButton(g_sChooseMotor, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 40, 80, 35,
+                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
+                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
+                  "Motor", 0, 0, 0, 0, chooseTest);
+
+RectangularButton(g_sChooseLight, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 80, 80, 35,
+                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
+                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
+                  "Light", 0, 0, 0, 0, chooseTest);
+
+RectangularButton(g_sChooseTemp, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 120, 80, 35,
+                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
+                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
+                  "Temp.", 0, 0, 0, 0, chooseTest);
+
+RectangularButton(g_sChooseAcc, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 160, 80, 35,
+                  (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
+                  ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
+                  "Acc.", 0, 0, 0, 0, chooseTest);
+
 //*****************************************************************************
-// The buttons at the bottom of the screen.
+// The buttons at the bottom of (all) screen(s).
 //*****************************************************************************
 RectangularButton(g_sPrevious, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 10, 200, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_AUTO_REPEAT),
@@ -184,7 +211,7 @@ void OnPrevious(tWidget *psWidget) {
 }
 
 //*****************************************************************************
-// Handles presses of the next panel button.
+// Handles presses of the next panel button. // TODO: Mark
 //*****************************************************************************
 void OnNext(tWidget *psWidget) {
     display_page = 2; // display the first page
@@ -227,6 +254,9 @@ void OnStartStop(tWidget *psWidget) {
     else { Start(); }
 }
 
+//*****************************************************************************
+// Handles changes to the sliders.
+//*****************************************************************************
 void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
     static char pcSpeedText[5];
     static char pcAccelText[5];
@@ -273,6 +303,9 @@ void OnPanel2(tWidget *psWidget, tContext *psContext) {
     // nothing
 }
 
+//*****************************************************************************
+// Start the motor.
+//*****************************************************************************
 void Start() {
     MotorOn = true;
     GPIO_write(Board_LED0, Board_LED_ON);
@@ -283,6 +316,9 @@ void Start() {
     Swi_post(motorStart);
 }
 
+//*****************************************************************************
+// Stop the motor.
+//*****************************************************************************
 void Stop() {
     MotorOn = false;
     GPIO_write(Board_LED0, Board_LED_OFF);
@@ -292,17 +328,22 @@ void Stop() {
     WidgetPaint((tWidget *)&g_sStartStop);
 }
 
-bool update;
+//*****************************************************************************
+// Timer that triggers the screen update.
+//*****************************************************************************
+bool updateTime;
 void UpdateTime() {
     while(1) {
         Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-            update = true;
+            updateTime = true;
         Semaphore_post(semTime);
         Task_sleep(1000);
     }
 }
 
-
+//*****************************************************************************
+// Main display functionality.
+//*****************************************************************************
 void UiStart() {
     tContext sContext;
     tRectangle sRect;
@@ -331,19 +372,26 @@ void UiStart() {
     System_printf("Touch Initialized\n");
     System_flush();
 
+    g_ui32Panel = 0;
     // Add previous and next buttons to the widget tree.
     WidgetAdd(WIDGET_ROOT, (tWidget *)&g_sPrevious);
     WidgetAdd(WIDGET_ROOT, (tWidget *)&g_sNext);
     WidgetAdd(WIDGET_ROOT, (tWidget *)&g_sStartStop);
     // Add the first panel to the widget tree.
-    g_ui32Panel = 0;
     WidgetAdd(WIDGET_ROOT, (tWidget *)g_psPanels);
     // Issue the initial paint request to the widgets.
     WidgetPaint(WIDGET_ROOT);
+
+    // Add the test button to the second panel
+    WidgetAdd((tWidget *)&g_sPanel2, (tWidget *) &g_sChooseMotor);
+    WidgetAdd((tWidget *)&g_sPanel2, (tWidget *) &g_sChooseLight);
+    WidgetAdd((tWidget *)&g_sPanel2, (tWidget *) &g_sChooseTemp);
+    WidgetAdd((tWidget *)&g_sPanel2, (tWidget *) &g_sChooseAcc);
+
     while(1) {
-        if (update) {
+        if (updateTime) {
             Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-                update = false;
+                updateTime = false;
             Semaphore_post(semTime);
             t++;
             tm = gmtime(&t);
@@ -366,7 +414,7 @@ void UiStart() {
                 // draw rectangle around previous RPM
                 sRect_rpm.i16XMin = 35;
                 sRect_rpm.i16YMin = 70-2-18;
-                sRect_rpm.i16XMax = GrStringWidthGet(&sContext, tempStr, sizeof(tempStr));
+                sRect_rpm.i16XMax = 215;
                 sRect_rpm.i16YMax = 70;
                 GrContextForegroundSet(&sContext, ClrBlack);
                 GrRectFill(&sContext, &sRect_rpm);
