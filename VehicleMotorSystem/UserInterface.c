@@ -50,8 +50,6 @@ extern tCanvasWidget g_psPanels[];
 //*****************************************************************************
 time_t t; // semTime
 struct tm *tm;
-volatile int duty_screen = DEFAULT_DUTY;
-volatile int display_page;
 
 extern int lux;
 extern int rpm;
@@ -105,11 +103,6 @@ tSliderWidget g_psSliders[] = {
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
                    ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
 };
-
-#define MOTOR_SPEED_SLIDER              0
-#define ALLOWABLE_ACCELLERATION_SLIDER  1
-#define CURRENT_LIMIT_SLIDER            2
-#define TEMPERATURE_LIMIT_SLIDER        3
 
 //*****************************************************************************
 // The second panel
@@ -175,6 +168,7 @@ RectangularButton(g_sStartStop, 0, 0, 0, &g_sKentec320x240x16_SSD2119, 105, 200,
 //*****************************************************************************
 uint32_t g_ui32Panel;
 
+volatile int display_page;
 //*****************************************************************************
 // Handles presses of the previous panel button.
 //*****************************************************************************
@@ -246,15 +240,22 @@ void OnNext(tWidget *psWidget) {
     }
 }
 
+volatile bool MotorOn = false;
 //*****************************************************************************
 // Handles presses of the start/stop button.
 //*****************************************************************************
-volatile bool MotorOn = false;
 void OnStartStop(tWidget *psWidget) {
     if (MotorOn) { Stop(); }
     else { Start(); }
 }
 
+#define MOTOR_SPEED_SLIDER              0
+#define ALLOWABLE_ACCELLERATION_SLIDER  1
+#define CURRENT_LIMIT_SLIDER            2
+#define TEMPERATURE_LIMIT_SLIDER        3
+
+volatile int duty_screen = DUTY_DEFAULT;
+volatile float duty_acc = 0.5;
 //*****************************************************************************
 // Handles changes to the sliders.
 //*****************************************************************************
@@ -266,7 +267,7 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]) {
         Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
-            duty_screen = (int)round(MAX_DUTY * ((float)i32Value / 100));
+            duty_screen = (int)round(DUTY_MAX * ((float)i32Value / 100));
         Semaphore_post(semDutyScreen);
 
         usprintf(pcSpeedText, "%3d%%", i32Value);
@@ -274,6 +275,10 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
         WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
+        Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
+            duty_acc = (float)i32Value / 100;
+        Semaphore_post(semDutyScreen);
+
         usprintf(pcAccelText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
         WidgetPaint((tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]);
