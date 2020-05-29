@@ -62,22 +62,22 @@ extern int TempLimit; // semTempLimit
 //*****************************************************************************
 // The first panel
 //*****************************************************************************
-Canvas(g_sSliderValueCanvas1, g_psPanels, &g_sSliderValueCanvas2, 0,
-       &g_sKentec320x240x16_SSD2119, 1, 32, 95, 40,
-       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-       &g_sFontCm18, "Motor Speed", 0, 0);
-Canvas(g_sSliderValueCanvas2, g_psPanels, &g_sSliderValueCanvas3, 0,
-       &g_sKentec320x240x16_SSD2119, 1, 74, 95, 40,
-       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-       &g_sFontCm18, "Acceleration", 0, 0);
-Canvas(g_sSliderValueCanvas3, g_psPanels, &g_sSliderValueCanvas4, 0,
-       &g_sKentec320x240x16_SSD2119, 1, 116, 95, 40,
-       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
-       &g_sFontCm18, "Current", 0, 0);
 Canvas(g_sSliderValueCanvas4, g_psPanels, 0, 0,
        &g_sKentec320x240x16_SSD2119, 1, 158, 95, 40,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
        &g_sFontCm18, "Temperature", 0, 0);
+Canvas(g_sSliderValueCanvas3, g_psPanels, &g_sSliderValueCanvas4, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 116, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Current", 0, 0);
+Canvas(g_sSliderValueCanvas2, g_psPanels, &g_sSliderValueCanvas3, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 74, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Acceleration", 0, 0);
+Canvas(g_sSliderValueCanvas1, g_psPanels, &g_sSliderValueCanvas2, 0,
+       &g_sKentec320x240x16_SSD2119, 1, 32, 95, 40,
+       CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
+       &g_sFontCm18, "Motor Speed", 0, 0);
 Canvas(g_sSliderValueCanvas, g_psPanels, &g_sSliderValueCanvas1, 0,
        &g_sKentec320x240x16_SSD2119, 0, 0, 0, 0,
        CANVAS_STYLE_TEXT | CANVAS_STYLE_TEXT_OPAQUE, ClrBlack, 0, ClrSilver,
