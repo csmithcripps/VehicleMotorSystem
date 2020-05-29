@@ -392,28 +392,32 @@ void UiStart() {
 
     while(1) {
         if (day && lux < 5) {
-            sRect.i16XMin = 270;
+            sRect.i16XMin = 260;
             sRect.i16YMin = 1;
-            sRect.i16XMax = 318;
+            sRect.i16XMax = GrContextDpyWidthGet(&sContext)-2;
             sRect.i16YMax = 22;
             GrContextForegroundSet(&sContext, ClrDarkBlue);
             GrRectFill(&sContext, &sRect);
             GrContextForegroundSet(&sContext, ClrWhite);
             GrContextFontSet(&sContext, &g_sFontCm20);
-            GrStringDraw(&sContext, "Night", -1, 270, 2, 0);
+            GrStringDraw(&sContext, "Night", -1,
+                         GrContextDpyWidthGet(&sContext)-2-GrStringWidthGet(&sContext, "Night", sizeof("Night")),
+                         2, 0);
             GPIO_write(Board_LED1, 1);
             day = false;
         }
         else if (!day && lux > 5) {
-            sRect.i16XMin = 270;
+            sRect.i16XMin = 260;
             sRect.i16YMin = 1;
-            sRect.i16XMax = 318;
+            sRect.i16XMax = GrContextDpyWidthGet(&sContext)-2;
             sRect.i16YMax = 22;
             GrContextForegroundSet(&sContext, ClrDarkBlue);
             GrRectFill(&sContext, &sRect);
             GrContextForegroundSet(&sContext, ClrWhite);
             GrContextFontSet(&sContext, &g_sFontCm20);
-            GrStringDraw(&sContext, "Day", -1, 285, 2, 0);
+            GrStringDraw(&sContext, "Day", -1,
+                         GrContextDpyWidthGet(&sContext)-2-GrStringWidthGet(&sContext, "Day", sizeof("Day")),
+                         2, 0);
             GPIO_write(Board_LED1, 0);
             day = true;
         }
