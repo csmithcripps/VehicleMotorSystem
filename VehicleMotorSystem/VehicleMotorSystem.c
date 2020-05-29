@@ -47,6 +47,7 @@
 #include "driverlib/uart.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
+extern I2C_Handle i2c;
 
 //*****************************************************************************
 // Main
