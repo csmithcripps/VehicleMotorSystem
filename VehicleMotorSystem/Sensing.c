@@ -58,6 +58,9 @@
 #define OPT_REG_LOW_LIMIT                   0x02
 #define OPT_REG_HIGH_LIMIT                  0x03
 
+
+struct bmi160_dev bmi160Sensor;
+
 I2C_Handle i2c;
 
 volatile int lux = 0;
@@ -65,7 +68,7 @@ volatile int luxArray[] = {0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0};
 
-Bool readI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
+int readI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
     I2C_Transaction i2cTransactionRead;
     UChar writeBuffer[1];
     Bool transferOK;
@@ -75,16 +78,17 @@ Bool readI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
     i2cTransactionRead.writeCount = 1; /* Number of bytes to be written */
     i2cTransactionRead.readBuf = data; /* Buffer to be read */
     i2cTransactionRead.readCount = len; /* Number of bytes to be read */
-
-
     writeBuffer[0] = reg_addr;
-    transferOK = I2C_transfer(i2c, &i2cTransactionRead); /* Perform I2C transfer */
 
-    return transferOK;
+    Semaphore_pend(semI2C, BIOS_WAIT_FOREVER);
+    transferOK = I2C_transfer(i2c, &i2cTransactionRead); /* Perform I2C transfer */
+    Semaphore_post(semI2C);
+    if(transferOK) return 0;
+    return 1;
 
 }
 
-Bool writeI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
+int writeI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
     I2C_Transaction i2cTransactionWrite;
     UChar writeBuffer[100];
     Bool transferOK;
@@ -99,9 +103,13 @@ Bool writeI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
     i2cTransactionWrite.writeCount = len+1; /* Number of bytes to be written */
     i2cTransactionWrite.readBuf = NULL; /* Buffer to be read */
     i2cTransactionWrite.readCount = 0; /* Number of bytes to be read */
-    transferOK = I2C_transfer(i2c, &i2cTransactionWrite); /* Perform I2C transfer */
 
-    return transferOK;
+    Semaphore_pend(semI2C, BIOS_WAIT_FOREVER);
+    transferOK = I2C_transfer(i2c, &i2cTransactionWrite); /* Perform I2C transfer */
+    Semaphore_post(semI2C);
+
+    if(transferOK) return 0;
+    return 1;
 
 }
 
@@ -115,7 +123,7 @@ void readOPT3001(){
         transferOK = readI2C(OPT3001_I2C_ADDRESS, OPT_REG_RESULT, (uint8_t *)&readBuffer, 2);
         rawData = (readBuffer[0] << 8) | readBuffer[1];
 
-        if (transferOK) {
+        if (!transferOK) {
             sensorOpt3001Convert(rawData, &convertedLux);
             lux = (int) convertedLux;
             int i;
@@ -135,56 +143,89 @@ void setupOPT3001(I2C_Handle bus){
     writeBuffer[1] = 0x10;
     transferOK = writeI2C(OPT3001_I2C_ADDRESS, OPT_REG_CONFIG, (uint8_t *)&writeBuffer, 2);
 
-    if (transferOK){
+    if (!transferOK){
 
-        System_printf("OPT3001 Initialized\n");
+        System_printf("OPT3001 Initialised\n");
         System_flush();
     }
 
 }
 
-void setupBMI160(I2C_Handle bus){
-    struct bmi160_dev sensor;
 
-    sensor.id = BMI160_I2C_ADDR;
-    sensor.interface = BMI160_I2C_INTF;
-    sensor.read = (bmi160_com_fptr_t)readI2C;
-    sensor.write = (bmi160_com_fptr_t)writeI2C;
-    sensor.delay_ms = Task_sleep;
-    int8_t rslt = BMI160_OK;
-    rslt = bmi160_init(&sensor);
-
-    /* Select the Output data rate, range of accelerometer sensor */
-    sensor.accel_cfg.odr = BMI160_ACCEL_ODR_1600HZ;
-    sensor.accel_cfg.range = BMI160_ACCEL_RANGE_2G;
-    sensor.accel_cfg.bw = BMI160_ACCEL_BW_NORMAL_AVG4;
-
-    /* Select the power mode of accelerometer sensor */
-    sensor.accel_cfg.power = BMI160_ACCEL_NORMAL_MODE;
-
-    /* Select the Output data rate, range of Gyroscope sensor */
-    sensor.gyro_cfg.odr = BMI160_GYRO_ODR_3200HZ;
-    sensor.gyro_cfg.range = BMI160_GYRO_RANGE_2000_DPS;
-    sensor.gyro_cfg.bw = BMI160_GYRO_BW_NORMAL_MODE;
-
-    /* Select the power mode of Gyroscope sensor */
-    sensor.gyro_cfg.power = BMI160_GYRO_NORMAL_MODE;
-
-    /* Set the sensor configuration */
-    rslt = bmi160_set_sens_conf(&sensor);
-
+void readBMI160(){
     struct bmi160_sensor_data accel;
+    int16_t x;
+    int16_t y;
+    int16_t z;
 
-    /* To read only Accel data */
-    rslt = bmi160_get_sensor_data(BMI160_ACCEL_SEL, &accel, NULL, &sensor);
-
-    if (rslt == BMI160_OK){
-
-        System_printf("BMI160 Initialized\n");
-        System_printf("Accel at Start: x->%d y->%d z->%d\n", accel.x, accel.y, accel.z);
-        System_flush();
+    while(1){
+        /* To read only Accel data */
+        if (bmi160_get_sensor_data(BMI160_ACCEL_SEL, &accel, NULL, &bmi160Sensor) == BMI160_OK){
+            x= accel.x;
+            y= accel.y;
+            z= accel.z;
+            System_printf("Accel: x->%d y->%d z->%d\n", x, y, z);
+            System_flush();
+        }
+        Task_sleep(500);
     }
 
+}
+
+void setupBMI160(I2C_Handle bus){
+
+    bmi160Sensor.id = BMI160_I2C_ADDR;
+    bmi160Sensor.interface = BMI160_I2C_INTF;
+    bmi160Sensor.read = (bmi160_com_fptr_t)&readI2C;
+    bmi160Sensor.write = (bmi160_com_fptr_t)&writeI2C;
+    bmi160Sensor.delay_ms = &Task_sleep;
+
+    bmi160Sensor.any_sig_sel = BMI160_BOTH_ANY_SIG_MOTION_DISABLED;
+    if(bmi160_soft_reset(&bmi160Sensor) != BMI160_OK){
+        System_printf("BMI160 Setup Failed\n");
+        System_flush();
+        return;
+    }
+
+    //Setup Accelerometer on BMI160
+    uint8_t reg_data = BMI160_ACCEL_ODR_200HZ | 0b00100000 | 0;
+    uint8_t reg_addr = BMI160_ACCEL_CONFIG_ADDR;
+    uint16_t len = 1;
+    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
+        System_printf("BMI160 Config Acc Failed\n");
+        System_flush();
+        return;
+    }
+    //Setup ACC Range on BMI160
+    reg_data = BMI160_ACCEL_RANGE_2G | 0;
+    reg_addr = BMI160_ACCEL_RANGE_ADDR;
+    len = 1;
+    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
+        System_printf("BMI160 Acc Range Failed\n");
+        System_flush();
+        return;
+    }
+    //Setup IntOut Control on BMI160
+    reg_data = 0b10101010;
+    reg_addr = BMI160_INT_OUT_CTRL_ADDR;
+    len = 1;
+    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
+        System_printf("BMI160 Int Output Control Setup Failed\n");
+        System_flush();
+        return;
+    }
+    //Setup FIFO Queue on BMI160
+    reg_data = BMI160_FIFO_A_ENABLE | 0;
+    reg_addr = BMI160_FIFO_CONFIG_1_ADDR;
+    len = 1;
+    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
+        System_printf("BMI160 Enable FIFO Failed\n");
+        System_flush();
+        return;
+    }
+
+    System_printf("BMI160 Initialised\n");
+    System_flush();
 
 }
 
@@ -203,7 +244,7 @@ void setupI2C(){
         System_printf("i2c failed\n");
         System_flush();
     }
-    System_printf("I2C Initialized\n");
+    System_printf("I2C Initialised\n");
     System_flush();
 
     setupOPT3001(i2c);
