@@ -30,7 +30,7 @@
 #include "Drivers/touch.h"
 /* I2C driver header files */
 #include "Drivers/opt3001.h"
-#include "Drivers/i2cOptDriver.h"
+//#include "Drivers/i2cOptDriver.h"
 /* Definition header file */
 #include "Drivers/globaldefines.h"
 #include "Drivers/motorlib.h"
@@ -48,14 +48,15 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
 #include "Drivers/opt3001.h"
+#include "Drivers/bmi160.h"
 
 #define OPT3001_I2C_ADDRESS             0x47
 
 /* Register addresses */
-#define REG_RESULT                      0x00
-#define REG_CONFIG                      0x01
-#define REG_LOW_LIMIT                   0x02
-#define REG_HIGH_LIMIT                  0x03
+#define OPT_REG_RESULT                      0x00
+#define OPT_REG_CONFIG                      0x01
+#define OPT_REG_LOW_LIMIT                   0x02
+#define OPT_REG_HIGH_LIMIT                  0x03
 
 I2C_Handle i2c;
 
@@ -64,23 +65,54 @@ volatile int luxArray[] = {0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0};
 
-void readOPT3001(){
-    UChar readBuffer[2];
-    I2C_Transaction i2cTransactionRead_OPT;
-    UChar writeBuffer[3];
+Bool readI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
+    I2C_Transaction i2cTransactionRead;
+    UChar writeBuffer[1];
     Bool transferOK;
 
-    i2cTransactionRead_OPT.slaveAddress = OPT3001_I2C_ADDRESS; /* 7-bit peripheral slave address */
-    i2cTransactionRead_OPT.writeBuf = writeBuffer; /* Buffer to be written */
-    i2cTransactionRead_OPT.writeCount = 1; /* Number of bytes to be written */
-    i2cTransactionRead_OPT.readBuf = readBuffer; /* Buffer to be read */
-    i2cTransactionRead_OPT.readCount = 2; /* Number of bytes to be read */
+    i2cTransactionRead.slaveAddress = addr; /* 7-bit peripheral slave address */
+    i2cTransactionRead.writeBuf = writeBuffer; /* Buffer to be written */
+    i2cTransactionRead.writeCount = 1; /* Number of bytes to be written */
+    i2cTransactionRead.readBuf = data; /* Buffer to be read */
+    i2cTransactionRead.readCount = len; /* Number of bytes to be read */
+
+
+    writeBuffer[0] = reg_addr;
+    transferOK = I2C_transfer(i2c, &i2cTransactionRead); /* Perform I2C transfer */
+
+    return transferOK;
+
+}
+
+Bool writeI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
+    I2C_Transaction i2cTransactionWrite;
+    UChar writeBuffer[100];
+    Bool transferOK;
+    int i;
+    for (i=0;i<len;i++){
+        writeBuffer[i+1] = *(data+i);
+    }
+    writeBuffer[0] = reg_addr;
+
+    i2cTransactionWrite.slaveAddress = addr; /* 7-bit peripheral slave address */
+    i2cTransactionWrite.writeBuf = writeBuffer; /* Buffer to be written */
+    i2cTransactionWrite.writeCount = len+1; /* Number of bytes to be written */
+    i2cTransactionWrite.readBuf = NULL; /* Buffer to be read */
+    i2cTransactionWrite.readCount = 0; /* Number of bytes to be read */
+    transferOK = I2C_transfer(i2c, &i2cTransactionWrite); /* Perform I2C transfer */
+
+    return transferOK;
+
+}
+
+void readOPT3001(){
+    UChar readBuffer[2];
+    Bool transferOK;
 
     uint16_t  rawData = 0;
     float     convertedLux = 0;
     while(1){
-        writeBuffer[0] = REG_RESULT;
-        transferOK = I2C_transfer(i2c, &i2cTransactionRead_OPT); /* Perform I2C transfer */
+        transferOK = readI2C(OPT3001_I2C_ADDRESS, OPT_REG_RESULT, (uint8_t *)&readBuffer, 2);
         rawData = (readBuffer[0] << 8) | readBuffer[1];
 
         if (transferOK) {
@@ -94,19 +126,72 @@ void readOPT3001(){
     }
 }
 
+
+void setupOPT3001(I2C_Handle bus){
+    UChar writeBuffer[2];
+    Bool transferOK;
+
+    writeBuffer[0] = 0xC4;
+    writeBuffer[1] = 0x10;
+    transferOK = writeI2C(OPT3001_I2C_ADDRESS, OPT_REG_CONFIG, (uint8_t *)&writeBuffer, 2);
+
+    if (transferOK){
+
+        System_printf("OPT3001 Initialized\n");
+        System_flush();
+    }
+
+}
+
+void setupBMI160(I2C_Handle bus){
+    struct bmi160_dev sensor;
+
+    sensor.id = BMI160_I2C_ADDR;
+    sensor.interface = BMI160_I2C_INTF;
+    sensor.read = (bmi160_com_fptr_t)readI2C;
+    sensor.write = (bmi160_com_fptr_t)writeI2C;
+    sensor.delay_ms = Task_sleep;
+    int8_t rslt = BMI160_OK;
+    rslt = bmi160_init(&sensor);
+
+    /* Select the Output data rate, range of accelerometer sensor */
+    sensor.accel_cfg.odr = BMI160_ACCEL_ODR_1600HZ;
+    sensor.accel_cfg.range = BMI160_ACCEL_RANGE_2G;
+    sensor.accel_cfg.bw = BMI160_ACCEL_BW_NORMAL_AVG4;
+
+    /* Select the power mode of accelerometer sensor */
+    sensor.accel_cfg.power = BMI160_ACCEL_NORMAL_MODE;
+
+    /* Select the Output data rate, range of Gyroscope sensor */
+    sensor.gyro_cfg.odr = BMI160_GYRO_ODR_3200HZ;
+    sensor.gyro_cfg.range = BMI160_GYRO_RANGE_2000_DPS;
+    sensor.gyro_cfg.bw = BMI160_GYRO_BW_NORMAL_MODE;
+
+    /* Select the power mode of Gyroscope sensor */
+    sensor.gyro_cfg.power = BMI160_GYRO_NORMAL_MODE;
+
+    /* Set the sensor configuration */
+    rslt = bmi160_set_sens_conf(&sensor);
+
+    struct bmi160_sensor_data accel;
+
+    /* To read only Accel data */
+    rslt = bmi160_get_sensor_data(BMI160_ACCEL_SEL, &accel, NULL, &sensor);
+
+    if (rslt == BMI160_OK){
+
+        System_printf("BMI160 Initialized\n");
+        System_printf("Accel at Start: x->%d y->%d z->%d\n", accel.x, accel.y, accel.z);
+        System_flush();
+    }
+
+
+}
+
 void setupI2C(){
     // I2C Parameters
     UInt peripheralNum = 0; /* Such as I2C0 */
     I2C_Params i2cParams;
-    I2C_Transaction i2cTransactionWrite;
-    UChar writeBuffer[3];
-    Bool transferOK;
-
-    i2cTransactionWrite.slaveAddress = OPT3001_I2C_ADDRESS; /* 7-bit peripheral slave address */
-    i2cTransactionWrite.writeBuf = writeBuffer; /* Buffer to be written */
-    i2cTransactionWrite.writeCount = 3; /* Number of bytes to be written */
-    i2cTransactionWrite.readBuf = NULL; /* Buffer to be read */
-    i2cTransactionWrite.readCount = 0; /* Number of bytes to be read */
 
     // Open I2C connection
     I2C_Params_init(&i2cParams);
@@ -121,16 +206,6 @@ void setupI2C(){
     System_printf("I2C Initialized\n");
     System_flush();
 
-    // Init OPT3001
-    writeBuffer[0] = REG_CONFIG;
-    writeBuffer[1] = 0xC0;
-    writeBuffer[2] = 0x10;
-    transferOK = I2C_transfer(i2c, &i2cTransactionWrite); /* Perform I2C transfer */
-
-    writeBuffer[1] = 0xC4;
-    writeBuffer[2] = 0x10;
-    transferOK = I2C_transfer(i2c, &i2cTransactionWrite); /* Perform I2C transfer */
-
-    System_printf("OPT3001 Initialized\n");
-    System_flush();
+    setupOPT3001(i2c);
+    setupBMI160(i2c);
 }
