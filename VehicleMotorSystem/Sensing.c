@@ -67,6 +67,9 @@ volatile int lux = 0;
 volatile int luxArray[] = {0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0};
+volatile int accelArray[] = {0,0,0,0,0,0,0,0,0,0,
+                             0,0,0,0,0,0,0,0,0,0,
+                             0,0,0,0,0,0,0,0,0,0};
 
 int readI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
     I2C_Transaction i2cTransactionRead;
@@ -154,22 +157,43 @@ void setupOPT3001(I2C_Handle bus){
 
 void readBMI160(){
     struct bmi160_sensor_data accel;
-    int16_t x;
-    int16_t y;
-    int16_t z;
+    int currentVal;
+    uint8_t data_array[9] = { 0 };
+    uint8_t FIFO_Length;
+    uint8_t lsb;
+    uint8_t msb;
+    int16_t msblsb;
+    uint8_t idx = 0;
+    int i = 0;
 
     while(1){
         /* To read only Accel data */
-        if (bmi160_get_sensor_data(BMI160_ACCEL_SEL, &accel, NULL, &bmi160Sensor) == BMI160_OK){
-            x= accel.x;
-            y= accel.y;
-            z= accel.z;
-            System_printf("Accel: x->%d y->%d z->%d\n", x, y, z);
-            System_flush();
-        }
-        Task_sleep(500);
-    }
+        for(i=0;i<30;i++){
+            if (bmi160_get_regs(BMI160_FIFO_DATA_ADDR, &data_array, 6, &bmi160Sensor) == BMI160_OK)
+            {
+                /* Accel Data */
+                idx = 0;
+                lsb = data_array[idx++];
+                msb = data_array[idx++];
+                msblsb = (int16_t)((msb << 8) | lsb);
+                accel.x = msblsb; /* Data in X axis */
+                lsb = data_array[idx++];
+                msb = data_array[idx++];
+                msblsb = (int16_t)((msb << 8) | lsb);
+                accel.y = msblsb; /* Data in Y axis */
+                lsb = data_array[idx++];
+                msb = data_array[idx++];
+                msblsb = (int16_t)((msb << 8) | lsb);
+                accel.z = msblsb; /* Data in Z axis */
 
+                accel.sensortime = 0;
+            }
+            currentVal = 9.81*2*  (abs(accel.x) + abs(accel.y) + abs(accel.z))/(0xFFFF/2);
+            accelArray[i] = currentVal-10;
+        }
+        currentVal = accelArray[29];
+        Task_sleep(150);
+    }
 }
 
 void setupBMI160(I2C_Handle bus){
@@ -180,46 +204,28 @@ void setupBMI160(I2C_Handle bus){
     bmi160Sensor.write = (bmi160_com_fptr_t)&writeI2C;
     bmi160Sensor.delay_ms = &Task_sleep;
 
-    bmi160Sensor.any_sig_sel = BMI160_BOTH_ANY_SIG_MOTION_DISABLED;
-    if(bmi160_soft_reset(&bmi160Sensor) != BMI160_OK){
+    if(bmi160_init(&bmi160Sensor) != BMI160_OK){
         System_printf("BMI160 Setup Failed\n");
         System_flush();
         return;
     }
 
-    //Setup Accelerometer on BMI160
-    uint8_t reg_data = BMI160_ACCEL_ODR_200HZ | 0b00100000 | 0;
-    uint8_t reg_addr = BMI160_ACCEL_CONFIG_ADDR;
-    uint16_t len = 1;
-    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
+    bmi160Sensor.accel_cfg.odr = BMI160_ACCEL_ODR_200HZ;
+    bmi160Sensor.accel_cfg.range = BMI160_ACCEL_RANGE_2G;
+    bmi160Sensor.accel_cfg.bw = BMI160_ACCEL_BW_NORMAL_AVG4;
+
+    /* Select the power mode of accelerometer sensor */
+    bmi160Sensor.accel_cfg.power = BMI160_ACCEL_NORMAL_MODE;
+    if(bmi160_set_sens_conf(&bmi160Sensor) != BMI160_OK){
         System_printf("BMI160 Config Acc Failed\n");
         System_flush();
         return;
     }
-    //Setup ACC Range on BMI160
-    reg_data = BMI160_ACCEL_RANGE_2G | 0;
-    reg_addr = BMI160_ACCEL_RANGE_ADDR;
-    len = 1;
-    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
-        System_printf("BMI160 Acc Range Failed\n");
-        System_flush();
-        return;
-    }
-    //Setup IntOut Control on BMI160
-    reg_data = 0b10101010;
-    reg_addr = BMI160_INT_OUT_CTRL_ADDR;
-    len = 1;
-    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
-        System_printf("BMI160 Int Output Control Setup Failed\n");
-        System_flush();
-        return;
-    }
-    //Setup FIFO Queue on BMI160
-    reg_data = BMI160_FIFO_A_ENABLE | 0;
-    reg_addr = BMI160_FIFO_CONFIG_1_ADDR;
-    len = 1;
-    if(writeI2C(BMI160_I2C_ADDR, reg_addr, &reg_data, len)){
-        System_printf("BMI160 Enable FIFO Failed\n");
+
+    uint8_t writeBuffer[1];
+    writeBuffer[0] = BMI160_FIFO_ACCEL | 0;
+    if(writeI2C(BMI160_I2C_ADDR, BMI160_FIFO_CONFIG_1_ADDR, writeBuffer, 1) != BMI160_OK){
+        System_printf("BMI160 FIFO Config Failed\n");
         System_flush();
         return;
     }
