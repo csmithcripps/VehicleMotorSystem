@@ -170,7 +170,7 @@ void readBMI160(){
     while(1){
         /* To read only Accel data */
         for(i=0;i<30;i++){
-            if (bmi160_get_regs(BMI160_FIFO_DATA_ADDR, &data_array, 6, &bmi160Sensor) == BMI160_OK)
+            if (bmi160_get_regs(BMI160_FIFO_DATA_ADDR, data_array, 6, &bmi160Sensor) == BMI160_OK)
             {
                 /* Accel Data */
                 idx = 0;

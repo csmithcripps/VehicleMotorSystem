@@ -3,6 +3,6 @@ Debug/
 .xdchelp
 .config/
 .launches/
-*.o
+*.obj
 *.log
 .jxbrowser-data/
