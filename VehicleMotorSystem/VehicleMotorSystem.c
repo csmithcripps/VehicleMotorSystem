@@ -58,6 +58,7 @@ int main(void) {
     Board_initGeneral();
     Board_initGPIO();
     Board_initI2C();
+    Board_initUART();
     System_printf(  "System initialization successful\n"
                     "Starting vehicle motor system\n");
     System_flush();

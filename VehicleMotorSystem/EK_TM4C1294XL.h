@@ -125,7 +125,7 @@ typedef enum EK_TM4C1294XL_SPIName {
  *  @brief  Enum of UARTs on the EK_TM4C1294XL dev board
  */
 typedef enum EK_TM4C1294XL_UARTName {
-    EK_TM4C1294XL_UART0 = 0,
+    EK_TM4C1294XL_UART7 = 0,
 
     EK_TM4C1294XL_UARTCOUNT
 } EK_TM4C1294XL_UARTName;
