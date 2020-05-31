@@ -34,6 +34,7 @@
 /* Definition header file */
 #include "Drivers/globaldefines.h"
 #include "Drivers/motorlib.h"
+#include "Drivers/tmp107.h"
 /* Other useful library files */
 #include "inc/hw_memmap.h"
 #include "inc/hw_ints.h"
@@ -44,7 +45,7 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
 #include "driverlib/timer.h"
-#include "driverlib/uart.h"
+//#include "driverlib/uart.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
 #include "Drivers/opt3001.h"
@@ -90,7 +91,7 @@ void readOPT3001(){
             for (i = 0; i < 29; i++) { luxArray[i] = luxArray[i+1]; }
             luxArray[29] = lux;
         }
-        Task_sleep(300);
+        Task_sleep(100);
     }
 }
 
@@ -134,3 +135,149 @@ void setupI2C(){
     System_printf("OPT3001 Initialized\n");
     System_flush();
 }
+
+
+
+volatile float boardTemp = 0;
+volatile float motorTemp = 0;
+volatile float boardTempArray[] = {0,0,0,0,0,0,0,0,0,0,
+                                   0,0,0,0,0,0,0,0,0,0,
+                                   0,0,0,0,0,0,0,0,0,0};
+volatile float motorTempArray[] = {0,0,0,0,0,0,0,0,0,0,
+                                   0,0,0,0,0,0,0,0,0,0,
+                                   0,0,0,0,0,0,0,0,0,0};
+
+//*****************************************************************************
+// Initialises the UART for use with the TMP107 sensor array
+//*****************************************************************************
+UART_Handle TMP107_InitUart() {
+    // Declare and configure relevant UART params
+    UART_Params uartParams;
+    UART_Params_init(&uartParams);
+    uartParams.readMode = UART_MODE_BLOCKING;
+    uartParams.readReturnMode = UART_RETURN_FULL;
+    uartParams.readTimeout = TMP107_Timeout*2;
+    uartParams.readEcho = UART_ECHO_OFF;
+    uartParams.baudRate = 115200;
+    // Open the UART and receive a handle
+    UART_Handle uart = UART_open(Board_UART7, &uartParams);
+    // Throw system abort if there is an error opening the UART
+    if (uart == NULL) {
+        System_abort("Error opening the UART");
+    }
+    // Return the UART handle
+    return uart;
+}
+
+//*****************************************************************************
+// Receives the transmit echo followed by the TMP107 sensor array data
+//*****************************************************************************
+void TMP107_receive(UART_Handle uart, char txSize, char* rxBuffer, char rxSize){
+    // define the stop bit value
+    int stopBit = 1;
+    // Define the count of bytes to receive
+    char rxCount = txSize + rxSize + stopBit;
+
+    // Temporary  buffer
+    char rxTmp[32];
+    // Fill the temporary buffer with the UART queue
+    UART_read(uart, &rxTmp, rxCount);
+
+    // Copy the bytes received from the TMP107 sensor array to the rxBuffer
+    char i;
+    if (rxSize > 0) {
+        for (i = 0; i < rxSize; i++) {
+            rxBuffer[i] = rxTmp[txSize + i];
+        }
+    }
+}
+
+//*****************************************************************************
+// Configures the addresses of the TMP107 sensors
+//*****************************************************************************
+char TMP107_Init(UART_Handle uart) {
+    // Initialise transmit and receive buffers
+    char txSize = 3;
+    char rxSize = 1;
+    char txBuffer[3];
+    char rxBuffer[1];
+
+    // Setup transmission packet to set the addresses of the sensors
+    txBuffer[0] = 0x55; // Calibration Byte (55h)
+    txBuffer[1] = 0x95;  // Address initialise command
+    txBuffer[2] = 0x5 | TMP107_Encode5bitAddress(0x1); // Set the first sensor to address 1
+    // Transmit address initialise command
+    UART_write(uart, txBuffer, txSize);
+    // Receive the address of the first sensor
+    TMP107_receive(uart, txSize, rxBuffer, rxSize);
+    // Wait for the communication interface in the TMP107 to reset
+    Task_sleep(TMP107_AddrInitTimeout);
+    // Return the address of the first sensor in the chain
+    return rxBuffer[0] & 0xF8;
+}
+
+//*****************************************************************************
+// Gets the address of the last TMP sensor in the array
+//*****************************************************************************
+char TMP107_LastDevicePoll(UART_Handle uart) {
+    // Initialise transmit and receive buffers
+    char txSize = 2;
+    char rxSize = 1;
+    char txBuffer[2];
+    char rxBuffer[1];
+
+    // Setup transmission packet to get the address of the last sensor
+    txBuffer[0] = 0x55; // Calibration Byte (55h)
+    txBuffer[1] = 0x57; // Last device poll command
+    // Transmit last device poll command
+    UART_write(uart, txBuffer, txSize);
+    // Receive the address of the last TMP107 sensor
+    TMP107_receive(uart, txSize, rxBuffer, rxSize);
+    // Return the address of the last sensor in the chain
+    return rxBuffer[0] & 0xF8;
+}
+
+//*****************************************************************************
+// The task for initialising, configuring and reading the TMP107 sensors
+//*****************************************************************************
+void readTMP107() {
+    // Initialise the UART and receive the handle
+    UART_Handle uart = TMP107_InitUart();
+    // Initialise addresses of the TMP107 sensors
+    char boardTMP107Addr = TMP107_Init(uart);
+    // Retreive the address of the last TMP107 sensor using Last Device Poll
+    char motorTMP107Addr = TMP107_LastDevicePoll(uart);
+
+    // Initialise transmit and receive buffers
+    char txSize = 3;
+    char rxSize = 4;
+    char txBuffer[3];
+    char rxBuffer[4];
+
+    // Setup transmission packet to get the temperature reading from both sensors
+    txBuffer[0] = 0x55; // Calibration Byte (55h)
+    txBuffer[1] = TMP107_Global_bit | TMP107_Read_bit | motorTMP107Addr; // Command and address phase
+    txBuffer[2] = TMP107_Temp_reg; // Register pointer phase
+
+    while(1) {
+        // Transmit global read command
+        UART_write(uart, txBuffer, txSize);
+        // Receive transmit echos followed by sensor readings
+        TMP107_receive(uart, txSize, rxBuffer, rxSize);
+        // Convert the sensor readings into degrees C
+        motorTemp = TMP107_DecodeTemperatureResult(rxBuffer[1], rxBuffer[0]);
+        boardTemp = TMP107_DecodeTemperatureResult(rxBuffer[3], rxBuffer[2]);
+        int i;
+        // Shift the existing temperature readings
+        for (i = 0; i < 29; i++) {
+            boardTempArray[i] = boardTempArray[i+1];
+            motorTempArray[i] = motorTempArray[i+1];
+        }
+        // Add the new temperature readings to the arrays
+        boardTempArray[29] = boardTemp;
+        motorTempArray[29] = motorTemp;
+        // sleep task
+        Task_sleep(100);
+    }
+}
+
