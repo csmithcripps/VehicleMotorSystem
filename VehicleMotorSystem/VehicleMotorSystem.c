@@ -30,7 +30,7 @@
 #include "Drivers/touch.h"
 /* I2C driver header files */
 #include "Drivers/opt3001.h"
-#include "Drivers/i2cOptDriver.h"
+//#include "Drivers/i2cOptDriver.h"
 /* Definition header file */
 #include "Drivers/globaldefines.h"
 #include "Drivers/motorlib.h"
