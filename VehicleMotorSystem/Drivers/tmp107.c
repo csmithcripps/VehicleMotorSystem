@@ -38,67 +38,6 @@
 
 #include "tmp107.h"
 
-char TMP107_GlobalAddressInit(){
-	// initialize the chain and return the last device address
-	char data[2];
-	char rx[32];
-	char last_response;
-	data[0] = TMP107_Global_bit | 0x94; // AddressInit command code
-	data[1] = 0x5 | TMP107_Encode5bitAddress(0x1); // give the first device logical address 1
-	TMP107_Transmit(data,2);
-    /* must wait 1250ms after receiving last device response
-     * during address init operation. this is not baud rate
-     * dependent. this is because address init writes to the
-     * internal eeprom, which takes additional time.
-     */
-	last_response = TMP107_WaitForEcho(2,33,TMP107_AddrInitTimeout); //force timeout with unreachable count
-	TMP107_RetrieveReadback(2, rx, last_response);
-	/* the last address received is actually the address of
-	 * the next device (which does not exist.) in order to get
-	 * the address of the last device, we have to look at
-	 * the address that was received 2nd to last.
-	 */
-	return rx[last_response - 1] & 0xF8;
-}
-
-char TMP107_LastDevicePoll(){
-	// query the device chain to find the last device in the chain
-	char tx[1];
-	char rx[1];
-	unsigned char retval;
-	tx[0] = 0x57; // LastDevicePoll command code
-	TMP107_Transmit(tx,1);
-	TMP107_WaitForEcho(1,1,TMP107_Timeout); // normal timeout
-	TMP107_RetrieveReadback(1,rx,1);
-	retval = rx[0] & 0xF8; // mask the unused address bits that are always 0b11
-	return retval;
-}
-
-void TMP107_GlobalSoftwareReset(){
-	// reset all devices in chain
-	char tx[1];
-	tx[0] = 0x5D; // GlobalSoftwareReset command code
-	TMP107_Transmit(tx,1);
-	TMP107_WaitForEcho(1,0,TMP107_Timeout);
-	// no need to RetrieveReadback
-}
-void TMP107_GlobalAlertClear1(){
-	// clear all Alert1
-	char tx[1];
-	tx[0] = 0xB5; // GlobalAlertClear1 command code
-	TMP107_Transmit(tx,1);
-	TMP107_WaitForEcho(1,0,TMP107_Timeout);
-	// no need to RetrieveReadback
-}
-void TMP107_GlobalAlertClear2(){
-	// clear all Alert2
-	char tx[1];
-	tx[0] = 0x75; // GlobalAlertClear2 command code
-	TMP107_Transmit(tx,1);
-	TMP107_WaitForEcho(1,0,TMP107_Timeout);
-	// no need to RetrieveReadback
-}
-
 float TMP107_DecodeTemperatureResult(int HByte, int LByte){
 	// convert raw byte response to floating point temperature
 	int Bytes;

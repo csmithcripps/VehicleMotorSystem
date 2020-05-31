@@ -68,18 +68,6 @@
 #define TMP107_EEPROM8_reg		0xAD
 #define TMP107_DieID_reg		0xAF //Read Only
 
-char TMP107_GlobalAddressInit();
-char TMP107_LastDevicePoll();
-void TMP107_GlobalSoftwareReset();
-void TMP107_GlobalAlertClear1();
-void TMP107_GlobalAlertClear2();
-
 float TMP107_DecodeTemperatureResult(int HByte, int LByte);
 unsigned char TMP107_Encode5bitAddress(unsigned char addr);
 unsigned char TMP107_Decode5bitAddress(unsigned char addr);
-
-// define these functions in application code
-void TMP107_Transmit(char* tx_data, char tx_size);
-char TMP107_WaitForEcho(char tx_size, char rx_size, int timeout_ms);
-char TMP107_CheckEcho(char* tx_data, char tx_size);
-void TMP107_RetrieveReadback(char tx_size, char* rx_data, char rx_size);
