@@ -381,6 +381,9 @@ void readTMP107() {
     txBuffer[1] = TMP107_Global_bit | TMP107_Read_bit | motorTMP107Addr; // Command and address phase
     txBuffer[2] = TMP107_Temp_reg; // Register pointer phase
 
+    System_printf("TMP107 Initialised\n");
+    System_flush();
+
     while(1) {
         // Transmit global read command
         UART_write(uart, txBuffer, txSize);
