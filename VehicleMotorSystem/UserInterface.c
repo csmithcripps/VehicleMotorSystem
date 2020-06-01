@@ -45,6 +45,10 @@ void OnPanel1(tWidget *psWidget, tContext *psContext);
 void OnPanel2(tWidget *psWidget, tContext *psContext);
 extern tCanvasWidget g_psPanels[];
 
+#define GRAPH_MOTOR 1
+#define GRAPH_LIGHT 2
+#define GRAPH_TEMP 3
+
 //*****************************************************************************
 // Shared resources that use semaphores
 //*****************************************************************************
@@ -122,29 +126,42 @@ tCanvasWidget g_psPanels[] = {
                     0, 24, 320, 176, CANVAS_STYLE_FILL, ClrBlack, 0, 0, 0, 0, 0, 0),
 };
 
-void chooseTest(tWidget *psWidget) {
-    GPIO_toggle(Board_LED0);
+int graph_param = GRAPH_MOTOR;
+void chooseMotor(tWidget *psWidget) {
+    graph_param = GRAPH_MOTOR;
+}
+
+void chooseLight(tWidget *psWidget) {
+    graph_param = GRAPH_LIGHT;
+}
+
+void chooseTemp(tWidget *psWidget) {
+    graph_param = GRAPH_TEMP;
+}
+
+void chooseAcc(tWidget *psWidget) {
+    // do nothing
 }
 
 RectangularButton(g_sChooseMotor, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 40, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
                   ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
-                  "Motor", 0, 0, 0, 0, chooseTest);
+                  "Motor", 0, 0, 0, 0, chooseMotor);
 
 RectangularButton(g_sChooseLight, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 80, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
                   ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
-                  "Light", 0, 0, 0, 0, chooseTest);
+                  "Light", 0, 0, 0, 0, chooseLight);
 
 RectangularButton(g_sChooseTemp, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 120, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
                   ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
-                  "Temp.", 0, 0, 0, 0, chooseTest);
+                  "Temp.", 0, 0, 0, 0, chooseTemp);
 
 RectangularButton(g_sChooseAcc, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 160, 80, 35,
                   (PB_STYLE_FILL | PB_STYLE_OUTLINE | PB_STYLE_TEXT | PB_STYLE_AUTO_REPEAT),
                   ClrDarkBlue, ClrBlue, ClrWhite, ClrWhite, &g_sFontCm20,
-                  "Acc.", 0, 0, 0, 0, chooseTest);
+                  "Acc.", 0, 0, 0, 0, chooseAcc);
 
 //*****************************************************************************
 // The buttons at the bottom of (all) screen(s).
@@ -339,12 +356,23 @@ void Stop() {
 // Timer that triggers the screen update.
 //*****************************************************************************
 bool updateTime;
+bool updatePlot;
 void UpdateTime() {
+    int i = 0;
     while(1) {
-        Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
-            updateTime = true;
-        Semaphore_post(semTime);
-        Task_sleep(1000);
+        if (i % 10 == 0) {
+            Semaphore_pend(semTime, BIOS_WAIT_FOREVER);
+                updateTime = true;
+            Semaphore_post(semTime);
+            i = 0;
+        }
+        if (i % 5 == 0) {
+            Semaphore_pend(semPlot, BIOS_WAIT_FOREVER);
+                updatePlot = true;
+            Semaphore_post(semPlot);
+        }
+        i++;
+        Task_sleep(100);
     }
 }
 
@@ -354,7 +382,7 @@ void UpdateTime() {
 void UiStart() {
     tContext sContext;
     tRectangle sRect;
-    tRectangle sRect_rpm;
+    tRectangle sRect_graph;
     char tempStr[40];
     bool day = true;
     Types_FreqHz cpuFreq;
@@ -447,43 +475,63 @@ void UiStart() {
             strftime(tempStr, sizeof(tempStr), "%d-%m-%Y %H:%M:%S", tm);
             IntMasterEnable();
             GrStringDraw(&sContext, tempStr, -1, 3, 2, 0);
+        }
+        if (updatePlot && display_page == 2) {
+            Semaphore_pend(semPlot, BIOS_WAIT_FOREVER);
+                updatePlot = false;
+            Semaphore_post(semPlot);
+            // clear the graphing area
+            sRect_graph.i16XMin = 35;
+            sRect_graph.i16YMin = 70-2-18;
+            sRect_graph.i16XMax = 215;
+            sRect_graph.i16YMax = 90;
+            GrContextForegroundSet(&sContext, ClrBlack);
+            GrRectFill(&sContext, &sRect_graph);
+            // plot graph background
+            sRect_graph.i16XMin = 215-29*6;
+            sRect_graph.i16YMin = 70;
+            sRect_graph.i16XMax = 215;
+            sRect_graph.i16YMax = 170;
+            GrContextForegroundSet(&sContext, ClrDarkBlue);
+            GrRectFill(&sContext, &sRect_graph);
+            // define the plotting variables
+            GrContextFontSet(&sContext, &g_sFontCm18);
+            GrContextForegroundSet(&sContext, ClrWhite);
+            int i; int x = 215-29*6;
 
-            if (display_page == 2) {
-                // draw rectangle around previous RPM
-                sRect_rpm.i16XMin = 35;
-                sRect_rpm.i16YMin = 70-2-18;
-                sRect_rpm.i16XMax = 215;
-                sRect_rpm.i16YMax = 70;
-                GrContextForegroundSet(&sContext, ClrBlack);
-                GrRectFill(&sContext, &sRect_rpm);
-                // draw current RPM
-                GrContextFontSet(&sContext, &g_sFontCm18);
-                GrContextForegroundSet(&sContext, ClrWhite);
-                sprintf(tempStr, "RPM: %d", (int)adcLatestSampleOne);// rpm);
-                GrStringDraw(&sContext, tempStr, -1, 35, 70-2-18, 0);
-                // draw rectangle around previous graph
-                sRect_rpm.i16XMin = 215-29*6;
-                sRect_rpm.i16YMin = 70;
-                sRect_rpm.i16XMax = 215;
-                sRect_rpm.i16YMax = 170;
-                GrContextForegroundSet(&sContext, ClrDarkBlue);
-                GrRectFill(&sContext, &sRect_rpm);
-                // draw graph
-                int i; int x = 215-29*6;
-                GrContextForegroundSet(&sContext, ClrWhite);
-                for (i = 0; i < 29; i++) {
-                    GrLineDraw(&sContext, x,   170-(float)motor_rpm[i]/7500*(170-70),
-                                          x+6, 170-(float)motor_rpm[i+1]/7500*(170-70));
-                    x += 6;
-                }
-                // label graph
-                GrStringDraw(&sContext, "7500", -1, 35-GrStringWidthGet(&sContext, "7500", sizeof("7500")), 70+2, 0);
-                GrStringDraw(&sContext, "0", -1, 35-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
-                GrStringDraw(&sContext, "3 seconds ago", -1, 35, 172, 0);
-                GrStringDraw(&sContext, "Now", -1,
-                             215-2-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
-                             172, 0);
+
+            switch (graph_param) {
+                case GRAPH_MOTOR:
+                    // print the current value to the screen
+                    sprintf(tempStr, "RPM: %d", (int)rpm);
+                    GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-2-18, 0);
+                    // plot the graph
+                    for (i = 0; i < 29; i++) {
+                        GrLineDraw(&sContext, x,   170-(float)motor_rpm[i]/7500*(170-70),
+                                   x+6, 170-(float)motor_rpm[i+1]/7500*(170-70));
+                        x += 6;
+                    }
+                    // label the upper limit
+                    GrStringDraw(&sContext, "7500", -1, 35-GrStringWidthGet(&sContext, "7500", sizeof("7500")), 70+2, 0);
+                    break;
+
+                case GRAPH_LIGHT:
+                    break;
+
+                case GRAPH_TEMP:
+                    break;
+
+                default:
+                    break;
             }
+
+
+            // label the graph
+            GrStringDraw(&sContext, "0", -1, 35-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
+            GrStringDraw(&sContext, "3 seconds ago", -1, 35, 172, 0);
+            GrStringDraw(&sContext, "Now", -1,
+                         215-2-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
+                         172, 0);
         }
         // Process any messages in the widget message queue.
         WidgetMessageQueueProcess();

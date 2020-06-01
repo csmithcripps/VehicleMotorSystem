@@ -1,4 +1,5 @@
 /* std Header files */
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -414,8 +415,11 @@ float getCurrent(uint32_t sensorVoltage) {
 
 volatile float adcLatestSampleOne;
 void SetupADC() {
+    int i, j;
     float iSensor1;
     float iSensor2;
+    float iSensor;
+    float avePow[] = {0,0,0,0,0,0,0,0,0,0};
     uint32_t pui32ADC1Value[1];
     uint32_t pui32ADC2Value[1];
 
@@ -441,22 +445,31 @@ void SetupADC() {
     ADCIntClear(ADC1_BASE, 2);
 
     while(1) {
-        ADCProcessorTrigger(ADC1_BASE, 1);
-        ADCProcessorTrigger(ADC1_BASE, 2);
+        for (j = 0; j < 10; j++) {
+            ADCProcessorTrigger(ADC1_BASE, 1);
+            ADCProcessorTrigger(ADC1_BASE, 2);
 
-        // Wait until the sample sequence has completed.
-        while(!ADCIntStatus(ADC1_BASE, 1, false) || !ADCIntStatus(ADC1_BASE, 2, false)) { }
+            // Wait until the sample sequence has completed.
+            while(!ADCIntStatus(ADC1_BASE, 1, false) || !ADCIntStatus(ADC1_BASE, 2, false)) { }
 
-        ADCIntClear(ADC1_BASE, 1);
-        ADCIntClear(ADC1_BASE, 2);
+            ADCIntClear(ADC1_BASE, 1);
+            ADCIntClear(ADC1_BASE, 2);
 
-        ADCSequenceDataGet(ADC1_BASE, 1, pui32ADC1Value);
-        ADCSequenceDataGet(ADC1_BASE, 2, pui32ADC2Value);
+            ADCSequenceDataGet(ADC1_BASE, 1, pui32ADC1Value);
+            ADCSequenceDataGet(ADC1_BASE, 2, pui32ADC2Value);
 
-        iSensor1 = getCurrent(pui32ADC1Value[0]);
-        iSensor2 = getCurrent(pui32ADC2Value[0]);
-        adcLatestSampleOne = 6 * (iSensor1 + iSensor2) * 3/2;
+            iSensor1 = getCurrent(pui32ADC1Value[0]);
+            iSensor2 = getCurrent(pui32ADC2Value[0]);
+            iSensor  = 6 * (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
 
-        Task_sleep(100);
+            int i;
+            for (i = 0; i < 9; i++) { avePow[i] = avePow[i+1]; }
+            avePow[9] = iSensor;
+
+            Task_sleep(10);
+        }
+        adcLatestSampleOne = 0;
+        for (i = 0; i < 10; i++) { adcLatestSampleOne += avePow[i]; }
+        adcLatestSampleOne /= 10;
     }
 }
