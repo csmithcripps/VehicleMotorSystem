@@ -162,7 +162,6 @@ void readBMI160(){
     struct bmi160_sensor_data accel;
     int currentVal;
     uint8_t data_array[9] = { 0 };
-    uint8_t FIFO_Length;
     uint8_t lsb;
     uint8_t msb;
     int16_t msblsb;
@@ -394,15 +393,17 @@ void readTMP107() {
         // Convert the sensor readings into degrees C
         motorTemp = TMP107_DecodeTemperatureResult(rxBuffer[1], rxBuffer[0]);
         boardTemp = TMP107_DecodeTemperatureResult(rxBuffer[3], rxBuffer[2]);
-        int i;
-        // Shift the existing temperature readings
-        for (i = 0; i < 29; i++) {
-            boardTempArray[i] = boardTempArray[i+1];
-            motorTempArray[i] = motorTempArray[i+1];
-        }
-        // Add the new temperature readings to the arrays
-        boardTempArray[29] = boardTemp;
-        motorTempArray[29] = motorTemp;
+        Semaphore_pend(semTEMP, BIOS_WAIT_FOREVER);
+            int i;
+            // Shift the existing temperature readings
+            for (i = 0; i < 29; i++) {
+                boardTempArray[i] = boardTempArray[i+1];
+                motorTempArray[i] = motorTempArray[i+1];
+            }
+            // Add the new temperature readings to the arrays
+            boardTempArray[29] = boardTemp;
+            motorTempArray[29] = motorTemp;
+        Semaphore_post(semTEMP);
         // sleep task
         Task_sleep(100);
     }

@@ -47,7 +47,11 @@ extern tCanvasWidget g_psPanels[];
 
 #define GRAPH_MOTOR 1
 #define GRAPH_LIGHT 2
-#define GRAPH_TEMP 3
+#define GRAPH_TEMP  3
+
+#define RPM_MAX  7500
+#define TEMP_MAX 50
+#define LUX_MAX  250
 
 //*****************************************************************************
 // Shared resources that use semaphores
@@ -56,9 +60,12 @@ time_t t; // semTime
 struct tm *tm;
 
 extern int lux;
-extern int rpm;
 extern float adcLatestSampleOne;
+
 extern int motor_rpm[];
+extern float boardTempArray[];
+extern float motorTempArray[];
+
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
 extern int TempLimit; // semTempLimit
@@ -384,6 +391,9 @@ void UiStart() {
     tRectangle sRect;
     tRectangle sRect_graph;
     char tempStr[40];
+    char tempLabel[40];
+    float tempData1[30];
+    float tempData2[30];
     bool day = true;
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
@@ -481,10 +491,10 @@ void UiStart() {
                 updatePlot = false;
             Semaphore_post(semPlot);
             // clear the graphing area
-            sRect_graph.i16XMin = 35;
-            sRect_graph.i16YMin = 70-2-18;
+            sRect_graph.i16XMin = 1;
+            sRect_graph.i16YMin = 70-4-36;
             sRect_graph.i16XMax = 215;
-            sRect_graph.i16YMax = 90;
+            sRect_graph.i16YMax = 170;
             GrContextForegroundSet(&sContext, ClrBlack);
             GrRectFill(&sContext, &sRect_graph);
             // plot graph background
@@ -496,37 +506,67 @@ void UiStart() {
             GrRectFill(&sContext, &sRect_graph);
             // define the plotting variables
             GrContextFontSet(&sContext, &g_sFontCm18);
-            GrContextForegroundSet(&sContext, ClrWhite);
             int i; int x = 215-29*6;
-
 
             switch (graph_param) {
                 case GRAPH_MOTOR:
+                    Semaphore_pend(semRPM, BIOS_WAIT_FOREVER);
+                        for (i = 0; i < 30; i++) {
+                            tempData1[i] = motor_rpm[i];
+                        }
+                    Semaphore_post(semRPM);
                     // print the current value to the screen
-                    sprintf(tempStr, "RPM: %d", (int)rpm);
+                    GrContextForegroundSet(&sContext, ClrWhite);
+                    sprintf(tempStr, "RPM: %d", (int)tempData1[29]);
                     GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-2-18, 0);
                     // plot the graph
                     for (i = 0; i < 29; i++) {
-                        GrLineDraw(&sContext, x,   170-(float)motor_rpm[i]/7500*(170-70),
-                                   x+6, 170-(float)motor_rpm[i+1]/7500*(170-70));
+                        GrLineDraw(&sContext,
+                                   x,   170 - (float)tempData1[i] / RPM_MAX * (170-70),
+                                   x+6, 170 - (float)tempData1[i+1] / RPM_MAX * (170-70));
                         x += 6;
                     }
-                    // label the upper limit
-                    GrStringDraw(&sContext, "7500", -1, 35-GrStringWidthGet(&sContext, "7500", sizeof("7500")), 70+2, 0);
-                    break;
-
-                case GRAPH_LIGHT:
+                    sprintf(tempLabel, "%d", RPM_MAX);
                     break;
 
                 case GRAPH_TEMP:
+                    Semaphore_pend(semTEMP, BIOS_WAIT_FOREVER);
+                        for (i = 0; i < 30; i++) {
+                            tempData1[i] = motorTempArray[i];
+                            tempData2[i] = boardTempArray[i];
+                        }
+                    Semaphore_post(semTEMP);
+                    // print the ambient temp data
+                    GrContextForegroundSet(&sContext, ClrRed);
+                    sprintf(tempStr, "A. Temp: %d", (int)tempData1[29]);
+                    GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-4-36, 0);
+                    for (i = 0; i < 29; i++) {
+                        GrLineDraw(&sContext,
+                                   x,   170 - tempData1[i] / TEMP_MAX * (170-70),
+                                   x+6, 170 - tempData1[i+1] / TEMP_MAX * (170-70));
+                        x += 6;
+                    }
+                    // prnt the motor temp data
+                    GrContextForegroundSet(&sContext, ClrWhite);
+                    sprintf(tempStr, "M. Temp: %d", (int)tempData2[29]);
+                    GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-2-18, 0);
+                    x = 215-29*6;
+                    for (i = 0; i < 29; i++) {
+                        GrLineDraw(&sContext,
+                                   x,   170 - tempData2[i] / TEMP_MAX * (170-70),
+                                   x+6, 170 - tempData2[i+1] / TEMP_MAX * (170-70));
+                        x += 6;
+                    }
+                    sprintf(tempLabel, "%d", TEMP_MAX);
                     break;
 
                 default:
                     break;
             }
 
-
             // label the graph
+            GrContextForegroundSet(&sContext, ClrWhite);
+            GrStringDraw(&sContext, tempLabel, -1, 35-GrStringWidthGet(&sContext, tempLabel, sizeof(tempLabel)), 70+2, 0);
             GrStringDraw(&sContext, "0", -1, 35-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
             GrStringDraw(&sContext, "3 seconds ago", -1, 35, 172, 0);
             GrStringDraw(&sContext, "Now", -1,
