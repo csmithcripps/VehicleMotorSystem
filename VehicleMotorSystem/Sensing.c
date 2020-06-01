@@ -131,15 +131,16 @@ void readOPT3001(){
 
         if (!transferOK) {
             sensorOpt3001Convert(rawData, &convertedLux);
-            lux = (int) convertedLux;
             int i;
-            for (i = 0; i < 29; i++) { luxArray[i] = luxArray[i+1]; }
-            luxArray[29] = lux;
+            Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
+                for (i = 0; i < 29; i++) { luxArray[i] = luxArray[i+1]; }
+                lux = (int) convertedLux;
+                luxArray[29] = lux;
+            Semaphore_post(semLUX);
         }
         Task_sleep(100);
     }
 }
-
 
 void setupOPT3001(I2C_Handle bus){
     UChar writeBuffer[2];
@@ -156,7 +157,6 @@ void setupOPT3001(I2C_Handle bus){
     }
 
 }
-
 
 void readBMI160(){
     struct bmi160_sensor_data accel;
@@ -461,7 +461,7 @@ void SetupADC() {
 
             iSensor1 = getCurrent(pui32ADC1Value[0]);
             iSensor2 = getCurrent(pui32ADC2Value[0]);
-            iSensor  = 6 * (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
+            iSensor  = 24 * (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
 
             int i;
             for (i = 0; i < 9; i++) { avePow[i] = avePow[i+1]; }

@@ -51,7 +51,14 @@ extern tCanvasWidget g_psPanels[];
 
 #define RPM_MAX  7500
 #define TEMP_MAX 50
-#define LUX_MAX  250
+#define LUX_MAX  200
+
+#define GRAPH_RIGHT_EDGE    215
+#define GRAPH_TOP_EDGE      70
+#define GRAPH_BOTTOM_EDGE   170
+#define GRAPH_NUM_POINTS    30
+#define GRAPH_POINTS_WIDTH  6
+#define FONT_SIZE           18
 
 //*****************************************************************************
 // Shared resources that use semaphores
@@ -63,6 +70,7 @@ extern int lux;
 extern float adcLatestSampleOne;
 
 extern int motor_rpm[];
+extern int luxArray[];
 extern float boardTempArray[];
 extern float motorTempArray[];
 
@@ -490,72 +498,101 @@ void UiStart() {
             Semaphore_pend(semPlot, BIOS_WAIT_FOREVER);
                 updatePlot = false;
             Semaphore_post(semPlot);
-            // clear the graphing area
+            int graph_left_edge = GRAPH_RIGHT_EDGE - (GRAPH_NUM_POINTS-1) * GRAPH_POINTS_WIDTH;
+            int graph_height = GRAPH_BOTTOM_EDGE - GRAPH_TOP_EDGE;
+            int i; int x = graph_left_edge;
+            // clear the left labels
             sRect_graph.i16XMin = 1;
-            sRect_graph.i16YMin = 70-4-36;
-            sRect_graph.i16XMax = 215;
-            sRect_graph.i16YMax = 170;
+            sRect_graph.i16YMin = GRAPH_TOP_EDGE;
+            sRect_graph.i16XMax = graph_left_edge;
+            sRect_graph.i16YMax = GRAPH_BOTTOM_EDGE;
+            GrContextForegroundSet(&sContext, ClrBlack);
+            GrRectFill(&sContext, &sRect_graph);
+            // clear the top labels
+            sRect_graph.i16XMin = graph_left_edge;
+            sRect_graph.i16YMin = GRAPH_TOP_EDGE - 2*(2+FONT_SIZE);
+            sRect_graph.i16XMax = GRAPH_RIGHT_EDGE;
+            sRect_graph.i16YMax = GRAPH_TOP_EDGE;
             GrContextForegroundSet(&sContext, ClrBlack);
             GrRectFill(&sContext, &sRect_graph);
             // plot graph background
-            sRect_graph.i16XMin = 215-29*6;
-            sRect_graph.i16YMin = 70;
-            sRect_graph.i16XMax = 215;
-            sRect_graph.i16YMax = 170;
+            sRect_graph.i16XMin = graph_left_edge;
+            sRect_graph.i16YMin = GRAPH_TOP_EDGE;
+            sRect_graph.i16XMax = GRAPH_RIGHT_EDGE;
+            sRect_graph.i16YMax = GRAPH_BOTTOM_EDGE;
             GrContextForegroundSet(&sContext, ClrDarkBlue);
             GrRectFill(&sContext, &sRect_graph);
             // define the plotting variables
             GrContextFontSet(&sContext, &g_sFontCm18);
-            int i; int x = 215-29*6;
 
             switch (graph_param) {
                 case GRAPH_MOTOR:
                     Semaphore_pend(semRPM, BIOS_WAIT_FOREVER);
-                        for (i = 0; i < 30; i++) {
+                        for (i = 0; i < GRAPH_NUM_POINTS; i++) {
                             tempData1[i] = motor_rpm[i];
                         }
                     Semaphore_post(semRPM);
                     // print the current value to the screen
                     GrContextForegroundSet(&sContext, ClrWhite);
-                    sprintf(tempStr, "RPM: %d", (int)tempData1[29]);
-                    GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-2-18, 0);
+                    sprintf(tempStr, "RPM: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
                     // plot the graph
-                    for (i = 0; i < 29; i++) {
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
-                                   x,   170 - (float)tempData1[i] / RPM_MAX * (170-70),
-                                   x+6, 170 - (float)tempData1[i+1] / RPM_MAX * (170-70));
-                        x += 6;
+                                   x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / RPM_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / RPM_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
                     }
                     sprintf(tempLabel, "%d", RPM_MAX);
                     break;
 
+                case GRAPH_LIGHT:
+                    Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
+                        for (i = 0; i < GRAPH_NUM_POINTS; i++) {
+                            tempData1[i] = luxArray[i];
+                        }
+                    Semaphore_post(semLUX);
+                    // print the current value to the screen
+                    GrContextForegroundSet(&sContext, ClrWhite);
+                    sprintf(tempStr, "LUX: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
+                    // plot the graph
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
+                        GrLineDraw(&sContext,
+                                   x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / LUX_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / LUX_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
+                    }
+                    sprintf(tempLabel, "%d", LUX_MAX);
+                    break;
+
                 case GRAPH_TEMP:
                     Semaphore_pend(semTEMP, BIOS_WAIT_FOREVER);
-                        for (i = 0; i < 30; i++) {
+                        for (i = 0; i < GRAPH_NUM_POINTS; i++) {
                             tempData1[i] = motorTempArray[i];
                             tempData2[i] = boardTempArray[i];
                         }
                     Semaphore_post(semTEMP);
                     // print the ambient temp data
                     GrContextForegroundSet(&sContext, ClrRed);
-                    sprintf(tempStr, "A. Temp: %d", (int)tempData1[29]);
-                    GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-4-36, 0);
-                    for (i = 0; i < 29; i++) {
+                    sprintf(tempStr, "A. Temp: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2*(2+FONT_SIZE), 0);
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
-                                   x,   170 - tempData1[i] / TEMP_MAX * (170-70),
-                                   x+6, 170 - tempData1[i+1] / TEMP_MAX * (170-70));
-                        x += 6;
+                                   x, GRAPH_BOTTOM_EDGE - tempData1[i] / TEMP_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData1[i+1] / TEMP_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
                     }
                     // prnt the motor temp data
                     GrContextForegroundSet(&sContext, ClrWhite);
-                    sprintf(tempStr, "M. Temp: %d", (int)tempData2[29]);
-                    GrStringDraw(&sContext, tempStr, -1, 215-29*6, 70-2-18, 0);
-                    x = 215-29*6;
-                    for (i = 0; i < 29; i++) {
+                    sprintf(tempStr, "M. Temp: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
+                    x = GRAPH_RIGHT_EDGE-(GRAPH_NUM_POINTS-1)*GRAPH_POINTS_WIDTH;
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
-                                   x,   170 - tempData2[i] / TEMP_MAX * (170-70),
-                                   x+6, 170 - tempData2[i+1] / TEMP_MAX * (170-70));
-                        x += 6;
+                                   x, GRAPH_BOTTOM_EDGE - tempData2[i] / TEMP_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData2[i+1] / TEMP_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
                     }
                     sprintf(tempLabel, "%d", TEMP_MAX);
                     break;
@@ -566,12 +603,12 @@ void UiStart() {
 
             // label the graph
             GrContextForegroundSet(&sContext, ClrWhite);
-            GrStringDraw(&sContext, tempLabel, -1, 35-GrStringWidthGet(&sContext, tempLabel, sizeof(tempLabel)), 70+2, 0);
-            GrStringDraw(&sContext, "0", -1, 35-GrStringWidthGet(&sContext, "0", sizeof("0")), 170-18-2, 0);
-            GrStringDraw(&sContext, "3 seconds ago", -1, 35, 172, 0);
+            GrStringDraw(&sContext, tempLabel, -1, 35-GrStringWidthGet(&sContext, tempLabel, sizeof(tempLabel)), GRAPH_TOP_EDGE+2, 0);
+            GrStringDraw(&sContext, "0", -1, 35-GrStringWidthGet(&sContext, "0", sizeof("0")), GRAPH_BOTTOM_EDGE-2-FONT_SIZE, 0);
+            GrStringDraw(&sContext, "3 seconds ago", -1, 35, GRAPH_BOTTOM_EDGE+2, 0);
             GrStringDraw(&sContext, "Now", -1,
-                         215-2-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
-                         172, 0);
+                         GRAPH_RIGHT_EDGE-2-GrStringWidthGet(&sContext, "Now", sizeof("Now")),
+                         GRAPH_BOTTOM_EDGE+2, 0);
         }
         // Process any messages in the widget message queue.
         WidgetMessageQueueProcess();
