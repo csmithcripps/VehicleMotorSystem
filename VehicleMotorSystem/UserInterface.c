@@ -53,6 +53,7 @@ struct tm *tm;
 
 extern int lux;
 extern int rpm;
+extern float adcLatestSampleOne;
 extern int motor_rpm[];
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
@@ -458,7 +459,7 @@ void UiStart() {
                 // draw current RPM
                 GrContextFontSet(&sContext, &g_sFontCm18);
                 GrContextForegroundSet(&sContext, ClrWhite);
-                sprintf(tempStr, "RPM: %d", rpm);
+                sprintf(tempStr, "RPM: %d", (int)adcLatestSampleOne);// rpm);
                 GrStringDraw(&sContext, tempStr, -1, 35, 70-2-18, 0);
                 // draw rectangle around previous graph
                 sRect_rpm.i16XMin = 215-29*6;

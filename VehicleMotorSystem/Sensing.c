@@ -407,71 +407,56 @@ void readTMP107() {
     }
 }
 
-uint32_t adcLatestSampleOne;
-uint16_t adcLatestSampleTwo;
-uint32_t processedGlobal;
-uint32_t ui32Count;
-uint32_t adcOneRaw[8];
-uint32_t adcTwoRaw[8];
-uint32_t pui32ADC1Value[8];
-uint32_t pui32ADC2Value[8];
-uint32_t avgOne = 0;
-uint32_t avgTwo = 0;
-uint8_t index = 0;
+float getCurrent(uint32_t sensorVoltage) {
+    float voltage = (float)sensorVoltage * 3.3 / 0xFFF;
+    return ((MOTOR_REFERENCE_VOLTAGE / 2 - voltage) / (G_CSA * R_SENSE));
+}
 
+volatile float adcLatestSampleOne;
 void SetupADC() {
-    //
+    float iSensor1;
+    float iSensor2;
+    uint32_t pui32ADC1Value[1];
+    uint32_t pui32ADC2Value[1];
+
     // Enable the ADC0 module.
-    //
     SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-    //
     // Wait for the ADC0 module to be ready.
-    //
-    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_ADC1)){}
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_ADC1)) { }
 
     GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_3);
     GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_7);
-    //
     // Enable the first sample sequencer to capture the value of channel 0 when
     // the processor trigger occurs.
-    //
-    ADCSequenceConfigure(ADC1_BASE, 0, ADC_TRIGGER_PROCESSOR, 0);
     ADCSequenceConfigure(ADC1_BASE, 1, ADC_TRIGGER_PROCESSOR, 0);
+    ADCSequenceConfigure(ADC1_BASE, 2, ADC_TRIGGER_PROCESSOR, 0);
 
-    ADCSequenceStepConfigure(ADC1_BASE, 0, 0, ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0);
-    ADCSequenceStepConfigure(ADC1_BASE, 1, 0, ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH4);
+    ADCSequenceStepConfigure(ADC1_BASE, 1, 0, ADC_CTL_IE | ADC_CTL_CH0 | ADC_CTL_END);
+    ADCSequenceStepConfigure(ADC1_BASE, 2, 0, ADC_CTL_IE | ADC_CTL_CH4 | ADC_CTL_END);
 
-    ADCSequenceEnable(ADC1_BASE, 0);
     ADCSequenceEnable(ADC1_BASE, 1);
+    ADCSequenceEnable(ADC1_BASE, 2);
+
+    ADCIntClear(ADC1_BASE, 1);
+    ADCIntClear(ADC1_BASE, 2);
 
     while(1) {
-        ADCProcessorTrigger(ADC1_BASE,0);
-        ADCProcessorTrigger(ADC1_BASE,1);
+        ADCProcessorTrigger(ADC1_BASE, 1);
+        ADCProcessorTrigger(ADC1_BASE, 2);
 
-        ui32Count = ADCSequenceDataGet(ADC1_BASE,0,pui32ADC1Value);
-        ui32Count = ADCSequenceDataGet(ADC1_BASE,1,pui32ADC2Value);
+        // Wait until the sample sequence has completed.
+        while(!ADCIntStatus(ADC1_BASE, 1, false) || !ADCIntStatus(ADC1_BASE, 2, false)) { }
 
-        index = 0;
-        for (;index < 8; index++) {
-            adcOneRaw[index] = pui32ADC1Value[index];
-            adcTwoRaw[index] = pui32ADC2Value[index];
-        }
+        ADCIntClear(ADC1_BASE, 1);
+        ADCIntClear(ADC1_BASE, 2);
 
-        index = 0;
-        adcLatestSampleOne = 0;
-        for (; index < 8; index++){
-            avgOne += adcOneRaw[index];
-            if (index < 4) {
-                avgTwo += adcTwoRaw[index];
-            }
-        }
+        ADCSequenceDataGet(ADC1_BASE, 1, pui32ADC1Value);
+        ADCSequenceDataGet(ADC1_BASE, 2, pui32ADC2Value);
 
-        avgTwo = avgTwo/8;
-        avgOne = avgOne/8;
-        adcLatestSampleOne = (avgOne+avgTwo)/2;
+        iSensor1 = getCurrent(pui32ADC1Value[0]);
+        iSensor2 = getCurrent(pui32ADC2Value[0]);
+        adcLatestSampleOne = 6 * (iSensor1 + iSensor2) * 3/2;
+
         Task_sleep(100);
-
     }
 }
