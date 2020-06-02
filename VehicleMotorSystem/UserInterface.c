@@ -586,11 +586,11 @@ void UiStart() {
                                    x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData1[i+1] / TEMP_MAX * graph_height);
                         x += GRAPH_POINTS_WIDTH;
                     }
-                    // prnt the motor temp data
+                    // print the motor temp data
                     GrContextForegroundSet(&sContext, ClrWhite);
                     sprintf(tempStr, "M. Temp: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
                     GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
-                    x = GRAPH_RIGHT_EDGE-(GRAPH_NUM_POINTS-1)*GRAPH_POINTS_WIDTH;
+                    x = graph_left_edge;
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
                                    x, GRAPH_BOTTOM_EDGE - tempData2[i] / TEMP_MAX * graph_height,
@@ -613,8 +613,8 @@ void UiStart() {
                     // plot the graph
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
-                                   x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / LUX_MAX * graph_height,
-                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / LUX_MAX * graph_height);
+                                   x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / ACCEL_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / ACCEL_MAX * graph_height);
                         x += GRAPH_POINTS_WIDTH;
                     }
                     sprintf(tempLabel, "%d", ACCEL_MAX);
