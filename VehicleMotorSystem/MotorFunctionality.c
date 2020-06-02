@@ -51,7 +51,6 @@
 #define RPM_CHECK_FREQ_TO_SEC 10
 #define NUM_RPM_POINTS 29
 
-volatile int rpm = 0;
 volatile int hall_count = 0;
 volatile int timer_count = 0;
 volatile int motor_rpm[] = {0,0,0,0,0,0,0,0,0,0,
@@ -118,7 +117,7 @@ void timerRPM() {
     TimerIntClear(TIMER4_BASE, TIMER_BOTH);
     // measure the RPM
     int rot_per_sec = RPM_CHECK_FREQ_TO_SEC * hall_count / HALL_COUNT_PER_REV;
-    rpm = SECS_IN_MIN * rot_per_sec;
+    int rpm = SECS_IN_MIN * rot_per_sec;
     hall_count = 0;
     // update the transient factor
     Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
@@ -140,8 +139,10 @@ void timerRPM() {
     // update the timer counter
     timer_count++;
     int i;
-    for (i = 0; i < NUM_RPM_POINTS; i++) { motor_rpm[i] = motor_rpm[i+1]; }
-    motor_rpm[NUM_RPM_POINTS] = rpm;
+    Semaphore_pend(semRPM, BIOS_WAIT_FOREVER);
+        for (i = 0; i < NUM_RPM_POINTS; i++) { motor_rpm[i] = motor_rpm[i+1]; }
+        motor_rpm[NUM_RPM_POINTS] = rpm;
+    Semaphore_post(semRPM);
 }
 
 //*****************************************************************************

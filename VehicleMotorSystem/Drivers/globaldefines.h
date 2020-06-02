@@ -12,3 +12,9 @@
 #define HALL_COUNT_PER_REV 18
 // the number of seconds in a min
 #define SECS_IN_MIN 60
+// the reference voltage of the motor
+#define MOTOR_REFERENCE_VOLTAGE 3.3
+// the resistance of the current sensors
+#define R_SENSE 0.007
+// the gain of the current sensors
+#define G_CSA 10

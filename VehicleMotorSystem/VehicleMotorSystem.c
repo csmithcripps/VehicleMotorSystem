@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 /* XDCtools Header files */
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
@@ -47,7 +48,7 @@
 #include "driverlib/uart.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
-extern I2C_Handle i2c;
+#include "driverlib/adc.h"
 
 //*****************************************************************************
 // Main
