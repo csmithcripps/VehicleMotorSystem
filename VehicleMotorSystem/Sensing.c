@@ -119,26 +119,50 @@ int writeI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
 
 }
 
+
+/*
+ * Function:    readOPT3001
+ * ------------------------
+ * Reads smoothed data from the ambient light sensor (OPT3001) on the sensor booster pack
+ * Saves data in global int array -> luxArray
+ */
 void readOPT3001(){
-    UChar readBuffer[2];
-    Bool transferOK;
+    // Declare Variables
+    UChar readBuffer[2];            //Buffer to be read into from OPT Sensor
+    Bool transferOK;                //Output success/fail: 0/1
+    float sampleArray[5] = { 0 };   //Array to store sample window
+    uint16_t  rawData = 0;          //Raw data from sensor
+    float     convertedLux = 0;     //Converted data from sensor in LUX
+    int i, j;                       //Loop counters
 
-    uint16_t  rawData = 0;
-    float     convertedLux = 0;
+    // Start task loop
     while(1){
-        transferOK = readI2C(OPT3001_I2C_ADDRESS, OPT_REG_RESULT, (uint8_t *)&readBuffer, 2);
-        rawData = (readBuffer[0] << 8) | readBuffer[1];
 
-        if (!transferOK) {
-            sensorOpt3001Convert(rawData, &convertedLux);
-            int i;
-            Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
-                for (i = 0; i < 29; i++) { luxArray[i] = luxArray[i+1]; }
-                lux = (int) convertedLux;
-                luxArray[29] = lux;
-            Semaphore_post(semLUX);
+        //Populate Sample Window
+        for(j=0; j<5; j++){
+
+            //Read Sensor
+            transferOK = readI2C(OPT3001_I2C_ADDRESS, OPT_REG_RESULT, (uint8_t *)&readBuffer, 2);
+
+            //On Success, store data in sample window
+            if (!transferOK) {
+                rawData = (readBuffer[0] << 8) | readBuffer[1];
+                sensorOpt3001Convert(rawData, &convertedLux);
+                for (i = 0; i < 4; i++) { sampleArray[i] = sampleArray[i+1]; }
+                sampleArray[4] = convertedLux;
+            }
+            Task_sleep(20);
         }
-        Task_sleep(100);
+        //Take Average of sample window
+        lux = 0;
+        for (i = 0; i < 5; i++) { lux += sampleArray[i]; }
+        lux /= 5;
+
+        //Put sample window data into display data array
+        Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
+            for (i = 0; i < 29; i++) { luxArray[i] = luxArray[i+1]; }
+            luxArray[29] = (int) lux;
+        Semaphore_post(semLUX);
     }
 }
 
@@ -161,7 +185,9 @@ void setupOPT3001(I2C_Handle bus){
 void readBMI160(){
     struct bmi160_sensor_data accel;
     float currentVal;
+    float aveAccel;
     uint8_t data_array[9] = { 0 };
+    float sampleArray[20] = { 0 };
     uint8_t lsb;
     uint8_t msb;
     int16_t msblsb;
@@ -169,11 +195,11 @@ void readBMI160(){
     int i = 0;
 
     while(1){
-        /* To read only Accel data */
-        for(i=0;i<30;i++){
+        /* To read 20 points of accel data from FIFO*/
+        for(i=0;i<20;i++){
             if (bmi160_get_regs(BMI160_FIFO_DATA_ADDR, data_array, 6, &bmi160Sensor) == BMI160_OK)
             {
-                /* Accel Data */
+                /* Extract Accel Data */
                 idx = 0;
                 lsb = data_array[idx++];
                 msb = data_array[idx++];
@@ -191,10 +217,21 @@ void readBMI160(){
                 accel.sensortime = 0;
             }
             currentVal = 9.81*2*  (abs(accel.x) + abs(accel.y) + abs(accel.z))/(0xFFFF/2);
-            accelArray[i] = currentVal;
+            for (i = 0; i < 19; i++) { sampleArray[i] = sampleArray[i+1]; }
+            sampleArray[19] = currentVal;
         }
-        currentVal = accelArray[29];
-        Task_sleep(150);
+        Task_sleep(100);
+
+        //Take Average of sample window
+        aveAccel = 0;
+        for (i = 0; i < 20; i++) { aveAccel += sampleArray[i]; }
+        aveAccel /= 20;
+
+        //Put sample window data into display data array
+        Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
+            for (i = 0; i < 29; i++) { accelArray[i] = accelArray[i+1]; }
+            accelArray[29] = aveAccel;
+        Semaphore_post(semLUX);
     }
 }
 
