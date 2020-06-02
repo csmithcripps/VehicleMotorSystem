@@ -384,7 +384,8 @@ void EK_TM4C1294XL_initI2C(void)
      * an application.  Modify the pin mux settings in this file and resolve the
      * conflict before running your the application.
      */
-    /* Enable the peripheral */Types_FreqHz freq;
+    /* Enable the peripheral */
+    Types_FreqHz freq;
     BIOS_getCpuFreq(&freq);
 
     SysCtlPeripheralEnable(SYSCTL_PERIPH_I2C2);

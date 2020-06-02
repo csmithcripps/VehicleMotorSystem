@@ -48,10 +48,12 @@ extern tCanvasWidget g_psPanels[];
 #define GRAPH_MOTOR 1
 #define GRAPH_LIGHT 2
 #define GRAPH_TEMP  3
+#define GRAPH_ACCEL 4
 
-#define RPM_MAX  7500
-#define TEMP_MAX 50
-#define LUX_MAX  200
+#define RPM_MAX     7500
+#define TEMP_MAX    50
+#define LUX_MAX     250
+#define ACCEL_MAX   30
 
 #define GRAPH_RIGHT_EDGE    215
 #define GRAPH_TOP_EDGE      70
@@ -73,6 +75,7 @@ extern int motor_rpm[];
 extern int luxArray[];
 extern float boardTempArray[];
 extern float motorTempArray[];
+extern float accelArray[];
 
 extern int AccelerationLimit; // semAccelerationLimit
 extern int CurrentLimit; // semCurrentLimit
@@ -155,7 +158,7 @@ void chooseTemp(tWidget *psWidget) {
 }
 
 void chooseAcc(tWidget *psWidget) {
-    // do nothing
+    graph_param = GRAPH_ACCEL;
 }
 
 RectangularButton(g_sChooseMotor, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 40, 80, 35,
@@ -595,6 +598,26 @@ void UiStart() {
                         x += GRAPH_POINTS_WIDTH;
                     }
                     sprintf(tempLabel, "%d", TEMP_MAX);
+                    break;
+
+                case GRAPH_ACCEL:
+                    Semaphore_pend(semACCEL, BIOS_WAIT_FOREVER);
+                        for (i = 0; i < GRAPH_NUM_POINTS; i++) {
+                            tempData1[i] = accelArray[i];
+                        }
+                    Semaphore_post(semACCEL);
+                    // print the current value to the screen
+                    GrContextForegroundSet(&sContext, ClrWhite);
+                    sprintf(tempStr, "Accel: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
+                    // plot the graph
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
+                        GrLineDraw(&sContext,
+                                   x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / LUX_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / LUX_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
+                    }
+                    sprintf(tempLabel, "%d", ACCEL_MAX);
                     break;
 
                 default:
