@@ -67,12 +67,8 @@ struct bmi160_dev bmi160Sensor;
 I2C_Handle i2c;
 
 volatile int lux = 0;
-volatile int luxArray[] = {0,0,0,0,0,0,0,0,0,0,
-                           0,0,0,0,0,0,0,0,0,0,
-                           0,0,0,0,0,0,0,0,0,0};
-volatile float accelArray[] = {0,0,0,0,0,0,0,0,0,0,
-                             0,0,0,0,0,0,0,0,0,0,
-                             0,0,0,0,0,0,0,0,0,0};
+volatile int luxArray[30] = {0};
+volatile float accelArray[30] = {0};
 
 int readI2C(uint8_t addr, uint8_t reg_addr, uint8_t *data, uint16_t len){
     I2C_Transaction i2cTransactionRead;
@@ -300,12 +296,8 @@ void setupI2C(){
 
 volatile float boardTemp = 0;
 volatile float motorTemp = 0;
-volatile float boardTempArray[] = {0,0,0,0,0,0,0,0,0,0,
-                                   0,0,0,0,0,0,0,0,0,0,
-                                   0,0,0,0,0,0,0,0,0,0};
-volatile float motorTempArray[] = {0,0,0,0,0,0,0,0,0,0,
-                                   0,0,0,0,0,0,0,0,0,0,
-                                   0,0,0,0,0,0,0,0,0,0};
+volatile float boardTempArray[30] = {0};
+volatile float motorTempArray[30] = {0};
 
 //*****************************************************************************
 // Initialises the UART for use with the TMP107 sensor array
@@ -414,6 +406,10 @@ void readTMP107() {
     char txBuffer[3];
     char rxBuffer[4];
 
+    int i;
+    float aveMotorTemp[10] = {0};
+    float aveBoardTemp[10] = {0};
+
     // Setup transmission packet to get the temperature reading from both sensors
     txBuffer[0] = 0x55; // Calibration Byte (55h)
     txBuffer[1] = TMP107_Global_bit | TMP107_Read_bit | motorTMP107Addr; // Command and address phase
@@ -423,15 +419,30 @@ void readTMP107() {
     System_flush();
 
     while(1) {
-        // Transmit global read command
-        UART_write(uart, txBuffer, txSize);
-        // Receive transmit echos followed by sensor readings
-        TMP107_receive(uart, txSize, rxBuffer, rxSize);
-        // Convert the sensor readings into degrees C
-        motorTemp = TMP107_DecodeTemperatureResult(rxBuffer[1], rxBuffer[0]);
-        boardTemp = TMP107_DecodeTemperatureResult(rxBuffer[3], rxBuffer[2]);
-        Semaphore_pend(semTEMP, BIOS_WAIT_FOREVER);
-            int i;
+
+            // Transmit global read command
+            UART_write(uart, txBuffer, txSize);
+            // Receive transmit echos followed by sensor readings
+            TMP107_receive(uart, txSize, rxBuffer, rxSize);
+
+            for (i = 0; i < 9; i++) {
+                aveMotorTemp[i] = aveMotorTemp[i+1];
+                aveBoardTemp[i] = aveBoardTemp[i+1];
+            }
+            aveMotorTemp[9] = TMP107_DecodeTemperatureResult(rxBuffer[1], rxBuffer[0]);
+            aveBoardTemp[9] = TMP107_DecodeTemperatureResult(rxBuffer[3], rxBuffer[2]);
+
+            boardTemp = 0;
+            motorTemp = 0;
+            for (i = 0; i < 10; i++) {
+                boardTemp += aveMotorTemp[i];
+                motorTemp += aveBoardTemp[i];
+            }
+            boardTemp /= 10;
+            motorTemp /= 10;
+
+            Semaphore_pend(semTEMP, BIOS_WAIT_FOREVER);
+
             // Shift the existing temperature readings
             for (i = 0; i < 29; i++) {
                 boardTempArray[i] = boardTempArray[i+1];
@@ -440,10 +451,10 @@ void readTMP107() {
             // Add the new temperature readings to the arrays
             boardTempArray[29] = boardTemp;
             motorTempArray[29] = motorTemp;
-        Semaphore_post(semTEMP);
-        // sleep task
-        Task_sleep(100);
-    }
+            Semaphore_post(semTEMP);
+            // sleep task
+            Task_sleep(100);
+        }
 }
 
 float getCurrent(uint32_t sensorVoltage) {
@@ -451,15 +462,17 @@ float getCurrent(uint32_t sensorVoltage) {
     return ((MOTOR_REFERENCE_VOLTAGE / 2 - voltage) / (G_CSA * R_SENSE));
 }
 
-volatile float adcLatestSampleOne;
+volatile float motorPower;
+volatile float motorPowerArray[30] = {0};
+
 void SetupADC() {
     int i, j;
     float iSensor1;
     float iSensor2;
     float iSensor;
-    float avePow[] = {0,0,0,0,0,0,0,0,0,0};
-    uint32_t pui32ADC1Value[1];
-    uint32_t pui32ADC2Value[1];
+    float avePow[10] = {0};
+    uint32_t pui32ADC1Value;
+    uint32_t pui32ADC2Value;
 
     // Enable the ADC0 module.
     SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
@@ -483,31 +496,40 @@ void SetupADC() {
     ADCIntClear(ADC1_BASE, 2);
 
     while(1) {
-        for (j = 0; j < 10; j++) {
-            ADCProcessorTrigger(ADC1_BASE, 1);
-            ADCProcessorTrigger(ADC1_BASE, 2);
+            for (j = 0; j < 25; j++) {
+                ADCProcessorTrigger(ADC1_BASE, 1);
+                ADCProcessorTrigger(ADC1_BASE, 2);
 
-            // Wait until the sample sequence has completed.
-            while(!ADCIntStatus(ADC1_BASE, 1, false) || !ADCIntStatus(ADC1_BASE, 2, false)) { }
+                // Wait until the sample sequence has completed.
+                while(!ADCIntStatus(ADC1_BASE, 1, false) || !ADCIntStatus(ADC1_BASE, 2, false)) { }
 
-            ADCIntClear(ADC1_BASE, 1);
-            ADCIntClear(ADC1_BASE, 2);
+                ADCIntClear(ADC1_BASE, 1);
+                ADCIntClear(ADC1_BASE, 2);
 
-            ADCSequenceDataGet(ADC1_BASE, 1, pui32ADC1Value);
-            ADCSequenceDataGet(ADC1_BASE, 2, pui32ADC2Value);
+                ADCSequenceDataGet(ADC1_BASE, 1, &pui32ADC1Value);
+                ADCSequenceDataGet(ADC1_BASE, 2, &pui32ADC2Value);
 
-            iSensor1 = getCurrent(pui32ADC1Value[0]);
-            iSensor2 = getCurrent(pui32ADC2Value[0]);
-            iSensor  = 24 * (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
+                iSensor1 = getCurrent(pui32ADC1Value);
+                iSensor2 = getCurrent(pui32ADC2Value);
+                iSensor  = 24 * (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
 
+                for (i = 0; i < 9; i++) { avePow[i] = avePow[i+1]; }
+                avePow[9] = iSensor;
+
+                Task_sleep(4);
+            }
+            motorPower = 0;
+            for (i = 0; i < 10; i++) { motorPower += avePow[i]; }
+            motorPower /= 10;
+
+            Semaphore_pend(semPower, BIOS_WAIT_FOREVER);
             int i;
-            for (i = 0; i < 9; i++) { avePow[i] = avePow[i+1]; }
-            avePow[9] = iSensor;
-
-            Task_sleep(10);
+            // Shift the existing power readings
+            for (i = 0; i < 29; i++) {
+                motorPowerArray[i] = motorPowerArray[i+1];
+            }
+            // Add the new temperature readings to the arrays
+            motorPowerArray[29] = motorPower;
+            Semaphore_post(semPower);
         }
-        adcLatestSampleOne = 0;
-        for (i = 0; i < 10; i++) { adcLatestSampleOne += avePow[i]; }
-        adcLatestSampleOne /= 10;
-    }
 }
