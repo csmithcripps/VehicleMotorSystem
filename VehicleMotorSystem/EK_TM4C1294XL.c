@@ -42,7 +42,9 @@
 #include <xdc/std.h>
 #include <xdc/runtime/Error.h>
 #include <xdc/runtime/System.h>
+#include <xdc/runtime/Types.h>
 #include <ti/sysbios/family/arm/m3/Hwi.h>
+#include <ti/sysbios/BIOS.h>
 
 #include <inc/hw_ints.h>
 #include <inc/hw_memmap.h>
@@ -382,7 +384,9 @@ void EK_TM4C1294XL_initI2C(void)
      * an application.  Modify the pin mux settings in this file and resolve the
      * conflict before running your the application.
      */
-    /* Enable the peripheral */
+    /* Enable the peripheral */Types_FreqHz freq;
+    BIOS_getCpuFreq(&freq);
+
     SysCtlPeripheralEnable(SYSCTL_PERIPH_I2C2);
 
     /* Configure the appropriate pins to be I2C instead of GPIO. */
@@ -390,6 +394,7 @@ void EK_TM4C1294XL_initI2C(void)
     GPIOPinConfigure(GPIO_PN4_I2C2SDA);
     GPIOPinTypeI2CSCL(GPIO_PORTN_BASE, GPIO_PIN_5);
     GPIOPinTypeI2C(GPIO_PORTN_BASE, GPIO_PIN_4);
+    I2CMasterInitExpClk(GPIO_PORTN_BASE,(uint32_t)freq.lo,false);
 
     /* I2C8 Init */
     /* Enable the peripheral */

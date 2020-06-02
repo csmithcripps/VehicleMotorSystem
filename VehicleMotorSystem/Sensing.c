@@ -70,7 +70,7 @@ volatile int lux = 0;
 volatile int luxArray[] = {0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0,
                            0,0,0,0,0,0,0,0,0,0};
-volatile int accelArray[] = {0,0,0,0,0,0,0,0,0,0,
+volatile float accelArray[] = {0,0,0,0,0,0,0,0,0,0,
                              0,0,0,0,0,0,0,0,0,0,
                              0,0,0,0,0,0,0,0,0,0};
 
@@ -160,7 +160,7 @@ void setupOPT3001(I2C_Handle bus){
 
 void readBMI160(){
     struct bmi160_sensor_data accel;
-    int currentVal;
+    float currentVal;
     uint8_t data_array[9] = { 0 };
     uint8_t lsb;
     uint8_t msb;
@@ -191,7 +191,7 @@ void readBMI160(){
                 accel.sensortime = 0;
             }
             currentVal = 9.81*2*  (abs(accel.x) + abs(accel.y) + abs(accel.z))/(0xFFFF/2);
-            accelArray[i] = currentVal-10;
+            accelArray[i] = currentVal;
         }
         currentVal = accelArray[29];
         Task_sleep(150);
