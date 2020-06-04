@@ -50,10 +50,11 @@ extern tCanvasWidget g_psPanels[];
 #define GRAPH_TEMP  3
 #define GRAPH_ACCEL 4
 
-#define RPM_MAX     7500
+//#define RPM_MAX     7500
 #define TEMP_MAX    50
 #define LUX_MAX     250
-#define ACCEL_MAX   30
+#define ACCEL_MAX   40
+#define CURR_MAX    8000
 
 #define GRAPH_RIGHT_EDGE    215
 #define GRAPH_TOP_EDGE      70
@@ -278,9 +279,10 @@ void OnStartStop(tWidget *psWidget) {
 #define TEMPERATURE_LIMIT_SLIDER        3
 
 volatile int rpm_screen = RPM_MAX/2;
-extern int AccelerationLimit; // semAccelerationLimit
-extern int CurrentLimit; // semCurrentLimit
-extern int TempLimit; // semTempLimit
+volatile int duty_acc = RPM_MAX/2;
+int AccelerationLimit = ACCEL_MAX/2; // semAccelerationLimit
+int CurrentLimit = CURR_MAX/2; // semCurrentLimit
+int TempLimit = TEMP_MAX/2; // semTempLimit
 //*****************************************************************************
 // Handles changes to the sliders.
 //*****************************************************************************
@@ -300,20 +302,22 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
         WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
-//        Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
-//            duty_acc = (float)i32Value / 100;
-//        Semaphore_post(semDutyScreen);
+        AccelerationLimit = (int)(ACCEL_MAX * (float)i32Value / 100);
 
         usprintf(pcAccelText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
         WidgetPaint((tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]) {
+        CurrentLimit = (int)(CURR_MAX * (float)i32Value / 100);
+
         usprintf(pcAmpereText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[CURRENT_LIMIT_SLIDER], pcAmpereText);
         WidgetPaint((tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]) {
+        TempLimit = (int)(TEMP_MAX * (float)i32Value / 100);
+
         usprintf(pcTempText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[TEMPERATURE_LIMIT_SLIDER], pcTempText);
         WidgetPaint((tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]);
@@ -392,8 +396,8 @@ extern float accelArray[];
 //*****************************************************************************
 // Main display functionality.
 //*****************************************************************************
+tContext sContext;
 void UiStart() {
-    tContext sContext;
     tRectangle sRect;
     tRectangle sRect_graph;
     char tempStr[40];
@@ -423,6 +427,7 @@ void UiStart() {
     TouchScreenCallbackSet(WidgetPointerMessage);
     System_printf("Touch Initialized\n");
     System_flush();
+    Semaphore_post(semScreenInit);
 
     g_ui32Panel = 0;
     // Add previous and next buttons to the widget tree.

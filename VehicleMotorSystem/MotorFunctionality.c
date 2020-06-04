@@ -187,3 +187,65 @@ void SWIstartMotor() {
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
 }
 
+
+
+extern tContext sContext;
+bool EStopMotor(){
+    return 0;
+}
+
+extern int EStopMode;
+void SWI_EStop(){
+    bool motorStopped = 0;
+    tRectangle sRect;
+    char tempStr[40];
+    int i = 0;
+    sRect.i16XMin = 0;
+    sRect.i16YMin = 0;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext);
+    sRect.i16YMax = GrContextDpyHeightGet(&sContext);
+    GrContextForegroundSet(&sContext, ClrRed);
+    GrRectFill(&sContext, &sRect);
+
+    sRect.i16XMin = 10;
+    sRect.i16YMin = 10;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext)-10;
+    sRect.i16YMax = GrContextDpyHeightGet(&sContext)-10;
+    GrContextForegroundSet(&sContext, ClrWhite);
+    GrRectFill(&sContext, &sRect);
+
+    GrContextForegroundSet(&sContext, ClrRed);
+    GrContextFontSet(&sContext, &g_sFontCm40);
+    sprintf(tempStr, "E-Stop Engaged");
+    GrStringDraw(&sContext, tempStr, -1, 15, 20, 0);
+
+    GrContextFontSet(&sContext, &g_sFontCm30);
+    sprintf(tempStr, "E-Stop Mode: %d", EStopMode);
+    GrStringDraw(&sContext, tempStr, -1, 15, 80, 0);
+
+    GrContextFontSet(&sContext, &g_sFontCm20);
+    sprintf(tempStr, "Before proceeding allow motor");
+    GrStringDraw(&sContext, tempStr, -1, 15, 110, 0);
+    sprintf(tempStr, "to come to a complete stop.");
+    GrStringDraw(&sContext, tempStr, -1, 15, 130, 0);
+    sprintf(tempStr, "Reset to Continue");
+    GrStringDraw(&sContext, tempStr, -1, 15, 150, 0);
+    while(!motorStopped){
+//        motorStopped = EStopMotor();
+    }
+    sRect.i16XMin = 0;
+    sRect.i16YMin = 0;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext);
+    sRect.i16YMax = GrContextDpyHeightGet(&sContext);
+    GrContextForegroundSet(&sContext, ClrBlack);
+    GrRectFill(&sContext, &sRect);
+    sRect.i16XMin = 0;
+    sRect.i16YMin = 0;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 1;
+    sRect.i16YMax = 23;
+    GrContextForegroundSet(&sContext, ClrDarkBlue);
+    GrRectFill(&sContext, &sRect);
+    GrContextForegroundSet(&sContext, ClrWhite);
+    GrRectDraw(&sContext, &sRect);
+    WidgetPaint(WIDGET_ROOT);
+}
