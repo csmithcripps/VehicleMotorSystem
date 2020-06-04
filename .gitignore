@@ -6,3 +6,4 @@ Debug/
 *.obj
 *.log
 .jxbrowser-data/
+makefile*

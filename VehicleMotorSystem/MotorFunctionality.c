@@ -105,6 +105,8 @@ void initMotor() {
 extern bool MotorOn;
 extern int rpm_screen; // semSpeedLimit
 
+bool EStopActivity = false;
+
 float rpm_desired = 0;
 float duty_motor;
 float rpm_buffer[10] = {0};
@@ -132,7 +134,9 @@ void timerRPM() {
     rpm_ave /= 10;
     // set the desired RPM
     Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
-        if (MotorOn) {
+
+        if (EStopActivity) { rpm_desired += 2*RPM_DEC / 100; }
+        else if (MotorOn) {
             // acceleration
             if (rpm_desired < rpm_screen) { rpm_desired += RPM_ACC / 100; }
             // deceleration
@@ -199,7 +203,6 @@ void SWI_EStop(){
     bool motorStopped = 0;
     tRectangle sRect;
     char tempStr[40];
-    int i = 0;
     sRect.i16XMin = 0;
     sRect.i16YMin = 0;
     sRect.i16XMax = GrContextDpyWidthGet(&sContext);
@@ -231,21 +234,6 @@ void SWI_EStop(){
     sprintf(tempStr, "Reset to Continue");
     GrStringDraw(&sContext, tempStr, -1, 15, 150, 0);
     while(!motorStopped){
-//        motorStopped = EStopMotor();
+        EStopActivity = true;
     }
-    sRect.i16XMin = 0;
-    sRect.i16YMin = 0;
-    sRect.i16XMax = GrContextDpyWidthGet(&sContext);
-    sRect.i16YMax = GrContextDpyHeightGet(&sContext);
-    GrContextForegroundSet(&sContext, ClrBlack);
-    GrRectFill(&sContext, &sRect);
-    sRect.i16XMin = 0;
-    sRect.i16YMin = 0;
-    sRect.i16XMax = GrContextDpyWidthGet(&sContext) - 1;
-    sRect.i16YMax = 23;
-    GrContextForegroundSet(&sContext, ClrDarkBlue);
-    GrRectFill(&sContext, &sRect);
-    GrContextForegroundSet(&sContext, ClrWhite);
-    GrRectDraw(&sContext, &sRect);
-    WidgetPaint(WIDGET_ROOT);
 }
