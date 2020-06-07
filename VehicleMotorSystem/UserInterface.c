@@ -48,10 +48,12 @@ extern tCanvasWidget g_psPanels[];
 #define GRAPH_MOTOR 1
 #define GRAPH_LIGHT 2
 #define GRAPH_TEMP  3
+#define GRAPH_ACCEL 4
 
-#define RPM_MAX  7500
-#define TEMP_MAX 50
-#define LUX_MAX  200
+#define RPM_MAX     7500
+#define TEMP_MAX    50
+#define LUX_MAX     250
+#define ACCEL_MAX   30
 
 #define GRAPH_RIGHT_EDGE    215
 #define GRAPH_TOP_EDGE      70
@@ -65,18 +67,6 @@ extern tCanvasWidget g_psPanels[];
 //*****************************************************************************
 time_t t; // semTime
 struct tm *tm;
-
-extern int lux;
-extern float adcLatestSampleOne;
-
-extern int motor_rpm[];
-extern int luxArray[];
-extern float boardTempArray[];
-extern float motorTempArray[];
-
-extern int AccelerationLimit; // semAccelerationLimit
-extern int CurrentLimit; // semCurrentLimit
-extern int TempLimit; // semTempLimit
 
 //*****************************************************************************
 // Text display after and next-to the sliders
@@ -155,7 +145,7 @@ void chooseTemp(tWidget *psWidget) {
 }
 
 void chooseAcc(tWidget *psWidget) {
-    // do nothing
+    graph_param = GRAPH_ACCEL;
 }
 
 RectangularButton(g_sChooseMotor, &g_sPanel2, 0, 0, &g_sKentec320x240x16_SSD2119, 230, 40, 80, 35,
@@ -287,8 +277,10 @@ void OnStartStop(tWidget *psWidget) {
 #define CURRENT_LIMIT_SLIDER            2
 #define TEMPERATURE_LIMIT_SLIDER        3
 
-volatile int duty_screen = DUTY_DEFAULT;
-volatile float duty_acc = 0.5;
+volatile int rpm_screen = RPM_MAX/2;
+extern int AccelerationLimit; // semAccelerationLimit
+extern int CurrentLimit; // semCurrentLimit
+extern int TempLimit; // semTempLimit
 //*****************************************************************************
 // Handles changes to the sliders.
 //*****************************************************************************
@@ -300,7 +292,7 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
 
     if(psWidget == (tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]) {
         Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
-            duty_screen = (int)round(DUTY_MAX * ((float)i32Value / 100));
+            rpm_screen = (int)round(RPM_MAX * ((float)i32Value / 100));
         Semaphore_post(semDutyScreen);
 
         usprintf(pcSpeedText, "%3d%%", i32Value);
@@ -308,9 +300,9 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
         WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
-        Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
-            duty_acc = (float)i32Value / 100;
-        Semaphore_post(semDutyScreen);
+//        Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
+//            duty_acc = (float)i32Value / 100;
+//        Semaphore_post(semDutyScreen);
 
         usprintf(pcAccelText, "%3d%%", i32Value);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
@@ -391,6 +383,12 @@ void UpdateTime() {
     }
 }
 
+extern int motor_rpm[];
+extern int desired_motor_rpm[];
+extern int luxArray[];
+extern float boardTempArray[];
+extern float motorTempArray[];
+extern float accelArray[];
 //*****************************************************************************
 // Main display functionality.
 //*****************************************************************************
@@ -443,7 +441,7 @@ void UiStart() {
     WidgetAdd((tWidget *)&g_sPanel2, (tWidget *) &g_sChooseAcc);
 
     while(1) {
-        if (day && lux < 5) {
+        if (day && luxArray[29] < 5) {
             sRect.i16XMin = 260;
             sRect.i16YMin = 1;
             sRect.i16XMax = GrContextDpyWidthGet(&sContext)-2;
@@ -458,7 +456,7 @@ void UiStart() {
             GPIO_write(Board_LED1, 1);
             day = false;
         }
-        else if (!day && lux > 5) {
+        else if (!day && luxArray[29] > 5) {
             sRect.i16XMin = 260;
             sRect.i16YMin = 1;
             sRect.i16XMax = GrContextDpyWidthGet(&sContext)-2;
@@ -530,17 +528,29 @@ void UiStart() {
                     Semaphore_pend(semRPM, BIOS_WAIT_FOREVER);
                         for (i = 0; i < GRAPH_NUM_POINTS; i++) {
                             tempData1[i] = motor_rpm[i];
+                            tempData2[i] = desired_motor_rpm[i];
                         }
                     Semaphore_post(semRPM);
-                    // print the current value to the screen
-                    GrContextForegroundSet(&sContext, ClrWhite);
-                    sprintf(tempStr, "RPM: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
-                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
+                    // print the motor RPM
+                    GrContextForegroundSet(&sContext, ClrRed);
+                    sprintf(tempStr, "Current RPM: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2*(2+FONT_SIZE), 0);
                     // plot the graph
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
                                    x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / RPM_MAX * graph_height,
                                    x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / RPM_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
+                    }
+                    // print the desired RPM
+                    GrContextForegroundSet(&sContext, ClrWhite);
+                    sprintf(tempStr, "Desired RPM: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
+                    x = graph_left_edge;
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
+                        GrLineDraw(&sContext,
+                                   x, GRAPH_BOTTOM_EDGE - tempData2[i] / RPM_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData2[i+1] / RPM_MAX * graph_height);
                         x += GRAPH_POINTS_WIDTH;
                     }
                     sprintf(tempLabel, "%d", RPM_MAX);
@@ -575,7 +585,7 @@ void UiStart() {
                     Semaphore_post(semTEMP);
                     // print the ambient temp data
                     GrContextForegroundSet(&sContext, ClrRed);
-                    sprintf(tempStr, "A. Temp: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    sprintf(tempStr, "Ambient Temp: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
                     GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2*(2+FONT_SIZE), 0);
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
@@ -583,11 +593,11 @@ void UiStart() {
                                    x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData1[i+1] / TEMP_MAX * graph_height);
                         x += GRAPH_POINTS_WIDTH;
                     }
-                    // prnt the motor temp data
+                    // print the motor temp data
                     GrContextForegroundSet(&sContext, ClrWhite);
-                    sprintf(tempStr, "M. Temp: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
+                    sprintf(tempStr, "Motor Temp: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
                     GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
-                    x = GRAPH_RIGHT_EDGE-(GRAPH_NUM_POINTS-1)*GRAPH_POINTS_WIDTH;
+                    x = graph_left_edge;
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
                                    x, GRAPH_BOTTOM_EDGE - tempData2[i] / TEMP_MAX * graph_height,
@@ -595,6 +605,26 @@ void UiStart() {
                         x += GRAPH_POINTS_WIDTH;
                     }
                     sprintf(tempLabel, "%d", TEMP_MAX);
+                    break;
+
+                case GRAPH_ACCEL:
+                    Semaphore_pend(semACCEL, BIOS_WAIT_FOREVER);
+                        for (i = 0; i < GRAPH_NUM_POINTS; i++) {
+                            tempData1[i] = accelArray[i];
+                        }
+                    Semaphore_post(semACCEL);
+                    // print the current value to the screen
+                    GrContextForegroundSet(&sContext, ClrWhite);
+                    sprintf(tempStr, "Accelerometer: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
+                    // plot the graph
+                    for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
+                        GrLineDraw(&sContext,
+                                   x, GRAPH_BOTTOM_EDGE - (float)tempData1[i] / ACCEL_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / ACCEL_MAX * graph_height);
+                        x += GRAPH_POINTS_WIDTH;
+                    }
+                    sprintf(tempLabel, "%d", ACCEL_MAX);
                     break;
 
                 default:
