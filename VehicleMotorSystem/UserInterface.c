@@ -50,11 +50,11 @@ extern tCanvasWidget g_psPanels[];
 #define GRAPH_TEMP  3
 #define GRAPH_ACCEL 4
 
-//#define RPM_MAX     7500
-#define TEMP_MAX    50
+#define TEMP_MAX    80
 #define LUX_MAX     250
 #define ACCEL_MAX   40
 #define CURR_MAX    8000
+#define WATT_MAX    30
 
 #define GRAPH_RIGHT_EDGE    215
 #define GRAPH_TOP_EDGE      70
@@ -98,21 +98,21 @@ Canvas(g_sPanel1, g_psPanels, &g_sSliderValueCanvas1, 0,
 //*****************************************************************************
 tSliderWidget g_psSliders[] = {
     SliderStruct(  g_psPanels, g_psSliders + 1, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 35, 190, 30, 0, 100, 50,
+                   105, 35, 190, 30, 0, 100, 100,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
-                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange ),
+                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "7200", 0, 0, OnSliderChange ),
     SliderStruct(  g_psPanels, g_psSliders + 2, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 77, 190, 30, 0, 100, 50,
+                   105, 77, 190, 30, 0, 100, 100,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
-                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange ),
+                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "40", 0, 0, OnSliderChange ),
     SliderStruct(  g_psPanels, g_psSliders + 3, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 119, 190, 30, 0, 100, 50,
+                   105, 119, 190, 30, 0, 100, 100,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
-                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
+                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "8000", 0, 0, OnSliderChange),
     SliderStruct(  g_psPanels, &g_sPanel1, 0, &g_sKentec320x240x16_SSD2119,
-                   105, 161, 190, 30, 0, 100, 50,
+                   105, 161, 190, 30, 0, 100, 100,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
-                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "50%", 0, 0, OnSliderChange),
+                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "80", 0, 0, OnSliderChange),
 };
 
 //*****************************************************************************
@@ -278,11 +278,10 @@ void OnStartStop(tWidget *psWidget) {
 #define CURRENT_LIMIT_SLIDER            2
 #define TEMPERATURE_LIMIT_SLIDER        3
 
-volatile int rpm_screen = RPM_MAX/2;
-volatile int duty_acc = RPM_MAX/2;
-int AccelerationLimit = ACCEL_MAX/2; // semAccelerationLimit
-int CurrentLimit = CURR_MAX/2; // semCurrentLimit
-int TempLimit = TEMP_MAX/2; // semTempLimit
+volatile int rpm_screen = RPM_MAX;
+int AccelerationLimit = ACCEL_MAX; // semAccelerationLimit
+int CurrentLimit = CURR_MAX; // semCurrentLimit
+int TempLimit = TEMP_MAX; // semTempLimit
 //*****************************************************************************
 // Handles changes to the sliders.
 //*****************************************************************************
@@ -297,28 +296,28 @@ void OnSliderChange(tWidget *psWidget, int32_t i32Value) {
             rpm_screen = (int)round(RPM_MAX * ((float)i32Value / 100));
         Semaphore_post(semDutyScreen);
 
-        usprintf(pcSpeedText, "%3d%%", i32Value);
+        usprintf(pcSpeedText, "%3d", rpm_screen);
         SliderTextSet(&g_psSliders[MOTOR_SPEED_SLIDER], pcSpeedText);
         WidgetPaint((tWidget *)&g_psSliders[MOTOR_SPEED_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]) {
         AccelerationLimit = (int)(ACCEL_MAX * (float)i32Value / 100);
 
-        usprintf(pcAccelText, "%3d%%", i32Value);
+        usprintf(pcAccelText, "%3d", AccelerationLimit);
         SliderTextSet(&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER], pcAccelText);
         WidgetPaint((tWidget *)&g_psSliders[ALLOWABLE_ACCELLERATION_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]) {
         CurrentLimit = (int)(CURR_MAX * (float)i32Value / 100);
 
-        usprintf(pcAmpereText, "%3d%%", i32Value);
+        usprintf(pcAmpereText, "%3d", CurrentLimit);
         SliderTextSet(&g_psSliders[CURRENT_LIMIT_SLIDER], pcAmpereText);
         WidgetPaint((tWidget *)&g_psSliders[CURRENT_LIMIT_SLIDER]);
     }
     else if(psWidget == (tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]) {
         TempLimit = (int)(TEMP_MAX * (float)i32Value / 100);
 
-        usprintf(pcTempText, "%3d%%", i32Value);
+        usprintf(pcTempText, "%3d", TempLimit);
         SliderTextSet(&g_psSliders[TEMPERATURE_LIMIT_SLIDER], pcTempText);
         WidgetPaint((tWidget *)&g_psSliders[TEMPERATURE_LIMIT_SLIDER]);
     }
@@ -389,6 +388,7 @@ void UpdateTime() {
 
 extern int motor_rpm[];
 extern int desired_motor_rpm[];
+extern float motorPowerArray[];
 extern int luxArray[];
 extern float boardTempArray[];
 extern float motorTempArray[];
@@ -402,8 +402,8 @@ void UiStart() {
     tRectangle sRect_graph;
     char tempStr[40];
     char tempLabel[40];
-    float tempData1[30];
-    float tempData2[30];
+    float tempData1[30] = {0};
+    float tempData2[30] = {0};
     bool day = true;
     Types_FreqHz cpuFreq;
     BIOS_getCpuFreq(&cpuFreq);
@@ -533,12 +533,12 @@ void UiStart() {
                     Semaphore_pend(semRPM, BIOS_WAIT_FOREVER);
                         for (i = 0; i < GRAPH_NUM_POINTS; i++) {
                             tempData1[i] = motor_rpm[i];
-                            tempData2[i] = desired_motor_rpm[i];
+                            tempData2[i] = motorPowerArray[i];
                         }
                     Semaphore_post(semRPM);
                     // print the motor RPM
                     GrContextForegroundSet(&sContext, ClrRed);
-                    sprintf(tempStr, "Current RPM: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
+                    sprintf(tempStr, "Motor RPM: %d", (int)tempData1[(GRAPH_NUM_POINTS-1)]);
                     GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2*(2+FONT_SIZE), 0);
                     // plot the graph
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
@@ -547,18 +547,21 @@ void UiStart() {
                                    x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - (float)tempData1[i+1] / RPM_MAX * graph_height);
                         x += GRAPH_POINTS_WIDTH;
                     }
-                    // print the desired RPM
+                    sprintf(tempLabel, "%d", RPM_MAX);
+                    GrStringDraw(&sContext, tempLabel, -1, GRAPH_RIGHT_EDGE-GrStringWidthGet(&sContext, tempLabel, sizeof(tempLabel)), GRAPH_TOP_EDGE+2, 0);
+                    GrStringDraw(&sContext, "0", -1, GRAPH_RIGHT_EDGE-GrStringWidthGet(&sContext, "0", sizeof("0")), GRAPH_BOTTOM_EDGE-2-FONT_SIZE, 0);
+                    // print the estimated power
                     GrContextForegroundSet(&sContext, ClrWhite);
-                    sprintf(tempStr, "Desired RPM: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
+                    sprintf(tempStr, "Est. Power: %d", (int)tempData2[(GRAPH_NUM_POINTS-1)]);
                     GrStringDraw(&sContext, tempStr, -1, graph_left_edge, GRAPH_TOP_EDGE-2-FONT_SIZE, 0);
                     x = graph_left_edge;
                     for (i = 0; i < (GRAPH_NUM_POINTS-1); i++) {
                         GrLineDraw(&sContext,
-                                   x, GRAPH_BOTTOM_EDGE - tempData2[i] / RPM_MAX * graph_height,
-                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData2[i+1] / RPM_MAX * graph_height);
+                                   x, GRAPH_BOTTOM_EDGE - tempData2[i] / WATT_MAX * graph_height,
+                                   x+GRAPH_POINTS_WIDTH, GRAPH_BOTTOM_EDGE - tempData2[i+1] / WATT_MAX * graph_height);
                         x += GRAPH_POINTS_WIDTH;
                     }
-                    sprintf(tempLabel, "%d", RPM_MAX);
+                    sprintf(tempLabel, "%d", WATT_MAX);
                     break;
 
                 case GRAPH_LIGHT:

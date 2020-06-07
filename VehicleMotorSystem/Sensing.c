@@ -227,8 +227,8 @@ void readBMI160(){
 
         //Take Average of sample window
         aveAccel = 0;
-        for (i = 0; i < 20; i++) { aveAccel += sampleArray[i]; }
-        aveAccel /= 20;
+        for (i = 0; i < 5; i++) { aveAccel += sampleArray[i]; }
+        aveAccel /= 5;
 
         //Put sample window data into display data array
         Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
@@ -465,7 +465,7 @@ void readTMP107() {
             motorTempArray[29] = motorTemp;
             Semaphore_post(semTEMP);
 
-            if (!(rxBuffer[0]&&rxBuffer[1]&&rxBuffer[2]&&rxBuffer[3]) && motorTemp>TempLimit){
+            if  (motorTemp>TempLimit){
                 EStopMode = 2;
                 Swi_post(EStop);
             }

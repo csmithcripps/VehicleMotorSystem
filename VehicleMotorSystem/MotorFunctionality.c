@@ -105,7 +105,7 @@ void initMotor() {
 extern bool MotorOn;
 extern int rpm_screen; // semSpeedLimit
 
-bool EStopActivity = false;
+bool EStopActive = false;
 
 float rpm_desired = 0;
 float duty_motor;
@@ -135,7 +135,7 @@ void timerRPM() {
     // set the desired RPM
     Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
 
-        if (EStopActivity) { rpm_desired += 2*RPM_DEC / 100; }
+        if (EStopActive) { rpm_desired += 2*RPM_DEC / 100; }
         else if (MotorOn) {
             // acceleration
             if (rpm_desired < rpm_screen) { rpm_desired += RPM_ACC / 100; }
@@ -199,8 +199,7 @@ bool EStopMotor(){
 }
 
 extern int EStopMode;
-void SWI_EStop(){
-    bool motorStopped = 0;
+void SWI_EStop() {
     tRectangle sRect;
     char tempStr[40];
     sRect.i16XMin = 0;
@@ -214,26 +213,16 @@ void SWI_EStop(){
     sRect.i16YMin = 10;
     sRect.i16XMax = GrContextDpyWidthGet(&sContext)-10;
     sRect.i16YMax = GrContextDpyHeightGet(&sContext)-10;
-    GrContextForegroundSet(&sContext, ClrWhite);
+    GrContextForegroundSet(&sContext, ClrBlack);
     GrRectFill(&sContext, &sRect);
 
-    GrContextForegroundSet(&sContext, ClrRed);
-    GrContextFontSet(&sContext, &g_sFontCm40);
-    sprintf(tempStr, "E-Stop Engaged");
-    GrStringDraw(&sContext, tempStr, -1, 15, 20, 0);
-
-    GrContextFontSet(&sContext, &g_sFontCm30);
-    sprintf(tempStr, "E-Stop Mode: %d", EStopMode);
-    GrStringDraw(&sContext, tempStr, -1, 15, 80, 0);
-
+    GrContextForegroundSet(&sContext, ClrWhite);
     GrContextFontSet(&sContext, &g_sFontCm20);
-    sprintf(tempStr, "Before proceeding allow motor");
-    GrStringDraw(&sContext, tempStr, -1, 15, 110, 0);
-    sprintf(tempStr, "to come to a complete stop.");
-    GrStringDraw(&sContext, tempStr, -1, 15, 130, 0);
-    sprintf(tempStr, "Reset to Continue");
-    GrStringDraw(&sContext, tempStr, -1, 15, 150, 0);
-    while(!motorStopped){
-        EStopActivity = true;
-    }
+    sprintf(tempStr, "E-Stop (Mode %d) Engaged.", EStopMode);
+    GrStringDraw(&sContext, tempStr, -1, 15, 20, 0);
+    sprintf(tempStr, "Reset to Continue.");
+    GrStringDraw(&sContext, tempStr, -1, 15, 40, 0);
+
+    EStopActive = true;
+    while(1);
 }
