@@ -61,6 +61,11 @@
 #define OPT_REG_LOW_LIMIT                   0x02
 #define OPT_REG_HIGH_LIMIT                  0x03
 
+extern int AccelerationLimit;
+extern int TempLimit; // semTempLimit
+extern int CurrentLimit;
+
+int EStopMode;
 
 struct bmi160_dev bmi160Sensor;
 
@@ -132,6 +137,7 @@ void readOPT3001(){
     int i, j;                       //Loop counters
 
     // Start task loop
+    while(!Semaphore_getCount(semScreenInit)){Task_sleep(10);}
     while(1){
 
         //Populate Sample Window
@@ -190,6 +196,7 @@ void readBMI160(){
     uint8_t idx = 0;
     int i = 0;
 
+    while(!Semaphore_getCount(semScreenInit)){Task_sleep(10);}
     while(1){
         /* To read 20 points of accel data from FIFO*/
         for(i=0;i<20;i++){
@@ -220,14 +227,18 @@ void readBMI160(){
 
         //Take Average of sample window
         aveAccel = 0;
-        for (i = 0; i < 20; i++) { aveAccel += sampleArray[i]; }
-        aveAccel /= 20;
+        for (i = 0; i < 5; i++) { aveAccel += sampleArray[i]; }
+        aveAccel /= 5;
 
         //Put sample window data into display data array
         Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
             for (i = 0; i < 29; i++) { accelArray[i] = accelArray[i+1]; }
             accelArray[29] = aveAccel;
         Semaphore_post(semLUX);
+        if (aveAccel>AccelerationLimit){
+            EStopMode = 3;
+            Swi_post(EStop);
+        }
     }
 }
 
@@ -418,6 +429,7 @@ void readTMP107() {
     System_printf("TMP107 Initialised\n");
     System_flush();
 
+    while(!Semaphore_getCount(semScreenInit)){Task_sleep(10);}
     while(1) {
 
             // Transmit global read command
@@ -452,6 +464,11 @@ void readTMP107() {
             boardTempArray[29] = boardTemp;
             motorTempArray[29] = motorTemp;
             Semaphore_post(semTEMP);
+
+            if  (motorTemp>TempLimit){
+                EStopMode = 2;
+                Swi_post(EStop);
+            }
             // sleep task
             Task_sleep(100);
         }
@@ -470,6 +487,7 @@ void SetupADC() {
     float iSensor1;
     float iSensor2;
     float iSensor;
+    float totalCurrentAve;
     float avePow[10] = {0};
     uint32_t pui32ADC1Value;
     uint32_t pui32ADC2Value;
@@ -495,6 +513,7 @@ void SetupADC() {
     ADCIntClear(ADC1_BASE, 1);
     ADCIntClear(ADC1_BASE, 2);
 
+    while(!Semaphore_getCount(semScreenInit)){Task_sleep(10);}
     while(1) {
             for (j = 0; j < 25; j++) {
                 ADCProcessorTrigger(ADC1_BASE, 1);
@@ -511,10 +530,18 @@ void SetupADC() {
 
                 iSensor1 = getCurrent(pui32ADC1Value);
                 iSensor2 = getCurrent(pui32ADC2Value);
-                iSensor  = 24 * (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
+
+                totalCurrentAve = (fabs(iSensor1) + fabs(iSensor2)) * 3/2;
+
+                iSensor  = 24 * totalCurrentAve;
 
                 for (i = 0; i < 9; i++) { avePow[i] = avePow[i+1]; }
                 avePow[9] = iSensor;
+
+                if (totalCurrentAve>CurrentLimit){
+                    EStopMode = 1;
+                    Swi_post(EStop);
+                }
 
                 Task_sleep(4);
             }

@@ -105,6 +105,8 @@ void initMotor() {
 extern bool MotorOn;
 extern int rpm_screen; // semSpeedLimit
 
+bool EStopActive = false;
+
 float rpm_desired = 0;
 float duty_motor;
 float rpm_buffer[10] = {0};
@@ -132,7 +134,9 @@ void timerRPM() {
     rpm_ave /= 10;
     // set the desired RPM
     Semaphore_pend(semDutyScreen, BIOS_WAIT_FOREVER);
-        if (MotorOn) {
+
+        if (EStopActive) { rpm_desired += 2*RPM_DEC / 100; }
+        else if (MotorOn) {
             // acceleration
             if (rpm_desired < rpm_screen) { rpm_desired += RPM_ACC / 100; }
             // deceleration
@@ -187,3 +191,38 @@ void SWIstartMotor() {
                 GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2));
 }
 
+
+
+extern tContext sContext;
+bool EStopMotor(){
+    return 0;
+}
+
+extern int EStopMode;
+void SWI_EStop() {
+    tRectangle sRect;
+    char tempStr[40];
+    sRect.i16XMin = 0;
+    sRect.i16YMin = 0;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext);
+    sRect.i16YMax = GrContextDpyHeightGet(&sContext);
+    GrContextForegroundSet(&sContext, ClrRed);
+    GrRectFill(&sContext, &sRect);
+
+    sRect.i16XMin = 10;
+    sRect.i16YMin = 10;
+    sRect.i16XMax = GrContextDpyWidthGet(&sContext)-10;
+    sRect.i16YMax = GrContextDpyHeightGet(&sContext)-10;
+    GrContextForegroundSet(&sContext, ClrBlack);
+    GrRectFill(&sContext, &sRect);
+
+    GrContextForegroundSet(&sContext, ClrWhite);
+    GrContextFontSet(&sContext, &g_sFontCm20);
+    sprintf(tempStr, "E-Stop (Mode %d) Engaged.", EStopMode);
+    GrStringDraw(&sContext, tempStr, -1, 15, 20, 0);
+    sprintf(tempStr, "Reset to Continue.");
+    GrStringDraw(&sContext, tempStr, -1, 15, 40, 0);
+
+    EStopActive = true;
+    while(1);
+}
