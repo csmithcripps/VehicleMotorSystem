@@ -52,6 +52,7 @@
 #include "driverlib/adc.h"
 #include "Drivers/opt3001.h"
 #include "Drivers/bmi160.h"
+#include "Drivers/globaldefines.h"
 
 #define OPT3001_I2C_ADDRESS             0x47
 
@@ -131,40 +132,35 @@ void readOPT3001(){
     // Declare Variables
     UChar readBuffer[2];            //Buffer to be read into from OPT Sensor
     Bool transferOK;                //Output success/fail: 0/1
-    float sampleArray[5] = { 0 };   //Array to store sample window
     uint16_t  rawData = 0;          //Raw data from sensor
     float     convertedLux = 0;     //Converted data from sensor in LUX
-    int i, j;                       //Loop counters
+    int i;                       //Loop counters
 
     // Start task loop
     while(!Semaphore_getCount(semScreenInit)){Task_sleep(10);}
     while(1){
+        //Read Sensor
+        transferOK = readI2C(OPT3001_I2C_ADDRESS, OPT_REG_RESULT, (uint8_t *)&readBuffer, 2);
 
-        //Populate Sample Window
-        for(j=0; j<5; j++){
-
-            //Read Sensor
-            transferOK = readI2C(OPT3001_I2C_ADDRESS, OPT_REG_RESULT, (uint8_t *)&readBuffer, 2);
-
-            //On Success, store data in sample window
-            if (!transferOK) {
-                rawData = (readBuffer[0] << 8) | readBuffer[1];
-                sensorOpt3001Convert(rawData, &convertedLux);
-                for (i = 0; i < 4; i++) { sampleArray[i] = sampleArray[i+1]; }
-                sampleArray[4] = convertedLux;
-            }
-            Task_sleep(20);
+        //On Success, store data in sample window
+        if (!transferOK) {
+            rawData = (readBuffer[0] << 8) | readBuffer[1];
+            sensorOpt3001Convert(rawData, &convertedLux);
         }
-        //Take Average of sample window
-        lux = 0;
-        for (i = 0; i < 5; i++) { lux += sampleArray[i]; }
-        lux /= 5;
 
         //Put sample window data into display data array
         Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
+            // Calculate sliding window average with a window size of 5
+            lux = convertedLux;
+            for (i = 0; i < 4; i++) { lux += luxArray[29-i]; }
+            lux /= 5;
+
+            // Append Sliding window to display Array
             for (i = 0; i < 29; i++) { luxArray[i] = luxArray[i+1]; }
             luxArray[29] = (int) lux;
         Semaphore_post(semLUX);
+
+        Task_sleep(100);
     }
 }
 
@@ -176,7 +172,7 @@ void setupOPT3001(I2C_Handle bus){
     writeBuffer[1] = 0x10;
     transferOK = writeI2C(OPT3001_I2C_ADDRESS, OPT_REG_CONFIG, (uint8_t *)&writeBuffer, 2);
 
-    if (!transferOK){
+    if (transferOK == BMI160_OK){
 
         System_printf("OPT3001 Initialised\n");
         System_flush();
@@ -188,6 +184,7 @@ void readBMI160(){
     struct bmi160_sensor_data accel;
     float currentVal;
     float aveAccel;
+    uint8_t NSamples = 2;
     uint8_t data_array[9] = { 0 };
     float sampleArray[20] = { 0 };
     uint8_t lsb;
@@ -199,8 +196,8 @@ void readBMI160(){
     while(!Semaphore_getCount(semScreenInit)){Task_sleep(10);}
     while(1){
         /* To read 20 points of accel data from FIFO*/
-        for(i=0;i<20;i++){
-            if (bmi160_get_regs(BMI160_FIFO_DATA_ADDR, data_array, 6, &bmi160Sensor) == BMI160_OK)
+        for(i=0;i<NSamples;i++){
+            if (bmi160_get_regs(BMI160_ACCEL_DATA_ADDR, data_array, 6, &bmi160Sensor) == BMI160_OK)
             {
                 /* Extract Accel Data */
                 idx = 0;
@@ -220,15 +217,15 @@ void readBMI160(){
                 accel.sensortime = 0;
             }
             currentVal = 9.81*2*  (abs(accel.x) + abs(accel.y) + abs(accel.z))/(0xFFFF/2);
-            for (i = 0; i < 19; i++) { sampleArray[i] = sampleArray[i+1]; }
-            sampleArray[19] = currentVal;
+            for (i = 0; i < NSamples-1; i++) { sampleArray[i] = sampleArray[i+1]; }
+            sampleArray[NSamples-1] = currentVal;
         }
-        Task_sleep(100);
+        Task_sleep(20);
 
         //Take Average of sample window
         aveAccel = 0;
-        for (i = 0; i < 5; i++) { aveAccel += sampleArray[i]; }
-        aveAccel /= 5;
+        for (i = 0; i < NSamples; i++) { aveAccel += sampleArray[i]; }
+        aveAccel /= NSamples;
 
         //Put sample window data into display data array
         Semaphore_pend(semLUX, BIOS_WAIT_FOREVER);
@@ -465,7 +462,7 @@ void readTMP107() {
             motorTempArray[29] = motorTemp;
             Semaphore_post(semTEMP);
 
-            if  (motorTemp>TempLimit){
+            if  (motorTemp>TempLimit && MotorKit){
                 EStopMode = 2;
                 Swi_post(EStop);
             }

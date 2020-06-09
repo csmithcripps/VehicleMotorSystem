@@ -395,7 +395,7 @@ void EK_TM4C1294XL_initI2C(void)
     GPIOPinConfigure(GPIO_PN4_I2C2SDA);
     GPIOPinTypeI2CSCL(GPIO_PORTN_BASE, GPIO_PIN_5);
     GPIOPinTypeI2C(GPIO_PORTN_BASE, GPIO_PIN_4);
-    I2CMasterInitExpClk(GPIO_PORTN_BASE,(uint32_t)freq.lo,false);
+    I2CMasterInitExpClk(GPIO_PORTN_BASE,(uint32_t)freq.hi,true);
 
     /* I2C8 Init */
     /* Enable the peripheral */
