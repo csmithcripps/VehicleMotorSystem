@@ -53,7 +53,7 @@ extern tCanvasWidget g_psPanels[];
 #define TEMP_MAX    80
 #define LUX_MAX     250
 #define ACCEL_MAX   40
-#define CURR_MAX    8000
+#define CURR_MAX    5
 #define WATT_MAX    30
 
 #define GRAPH_RIGHT_EDGE    215
@@ -108,7 +108,7 @@ tSliderWidget g_psSliders[] = {
     SliderStruct(  g_psPanels, g_psSliders + 3, 0, &g_sKentec320x240x16_SSD2119,
                    105, 119, 190, 30, 0, 100, 100,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
-                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "8000", 0, 0, OnSliderChange),
+                   ClrDarkOrange, ClrBlack, ClrSilver, ClrWhite, ClrWhite, &g_sFontCm20, "5", 0, 0, OnSliderChange),
     SliderStruct(  g_psPanels, &g_sPanel1, 0, &g_sKentec320x240x16_SSD2119,
                    105, 161, 190, 30, 0, 100, 100,
                    (SL_STYLE_FILL | SL_STYLE_BACKG_FILL | SL_STYLE_OUTLINE | SL_STYLE_TEXT | SL_STYLE_BACKG_TEXT),
@@ -587,8 +587,8 @@ void UiStart() {
                 case GRAPH_TEMP:
                     Semaphore_pend(semTEMP, BIOS_WAIT_FOREVER);
                         for (i = 0; i < GRAPH_NUM_POINTS; i++) {
-                            tempData1[i] = motorTempArray[i];
-                            tempData2[i] = boardTempArray[i];
+                            tempData1[i] = boardTempArray[i];
+                            tempData2[i] = motorTempArray[i];
                         }
                     Semaphore_post(semTEMP);
                     // print the ambient temp data

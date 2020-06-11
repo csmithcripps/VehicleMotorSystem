@@ -19,3 +19,6 @@
 #define R_SENSE 0.007
 // the gain of the current sensors
 #define G_CSA 10
+
+//Is MotorKit Attached
+#define MotorKit 1
